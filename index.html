@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh}
@@ -165,14 +166,14 @@ const POINTS_MAP = {1:8,2:7,3:6,4:5,5:4,6:3,7:2,8:1};
 const CLAN_COLORS = {Douglas:'#1e40af',Stuart:'#991b1b',Gordon:'#166534',Forbes:'#854d0e'};
 
 const SEED_PUPILS = [
-  {id:1,name:'Alasteir de Courcey',clan:'Douglas',yeargroup:'P5',gender:'M'},
-  {id:2,name:'Alicia Askham',clan:'Stuart',yeargroup:'P5',gender:'F'},
-  {id:3,name:'Amery Beurich',clan:'Stuart',yeargroup:'P6',gender:'M'},
-  {id:4,name:'Anabal Bubeer',clan:'Forbes',yeargroup:'P7',gender:'M'},
-  {id:5,name:'Andriana Ruppert',clan:'Gordon',yeargroup:'P7',gender:'F'},
-  {id:6,name:'Angelle de Cullip',clan:'Gordon',yeargroup:'P5',gender:'F'},
-  {id:7,name:'Ardenia Halton',clan:'Stuart',yeargroup:'P5',gender:'F'},
-  {id:8,name:'Arri Peddel',clan:'Douglas',yeargroup:'P5',gender:'M'},
+  {id:1,name:'Alasteir de Courcey',clan:'Douglas',yeargroup:'P5',gender:'M',dateAdded:'2025-01-01'},
+  {id:2,name:'Alicia Askham',clan:'Stuart',yeargroup:'P5',gender:'F',dateAdded:'2025-01-01'},
+  {id:3,name:'Amery Beurich',clan:'Stuart',yeargroup:'P6',gender:'M',dateAdded:'2025-01-01'},
+  {id:4,name:'Anabal Bubeer',clan:'Forbes',yeargroup:'P7',gender:'M',dateAdded:'2025-01-01'},
+  {id:5,name:'Andriana Ruppert',clan:'Gordon',yeargroup:'P7',gender:'F',dateAdded:'2025-01-01'},
+  {id:6,name:'Angelle de Cullip',clan:'Gordon',yeargroup:'P5',gender:'F',dateAdded:'2025-01-01'},
+  {id:7,name:'Ardenia Halton',clan:'Stuart',yeargroup:'P5',gender:'F',dateAdded:'2025-01-01'},
+  {id:8,name:'Arri Peddel',clan:'Douglas',yeargroup:'P5',gender:'M',dateAdded:'2025-01-01'},
 ];
 const SEED_RACES = [
   {id:1,yeargroup:'P5',racename:'Boys 100m'},
@@ -198,13 +199,93 @@ const SEED_SCORESHEET = [
   {event_id:2,pupil_id:8,position:1},
 ];
 
-function loadLS(key,seed){try{const v=localStorage.getItem(key);return v?JSON.parse(v):seed;}catch{return seed;}}
-function saveLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
-function useStore(key,seed){
-  const [data,setData]=useState(()=>loadLS(key,seed));
-  const set=useCallback(v=>{setData(v);saveLS(key,v);},[key]);
-  return [data,set];
-}
+const SUPABASE_URL='https://rnyvltcsksmpdpmyzuvu.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueXZsdGNza3NtZHBkbXl6dXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNzA1NTAsImV4cCI6MjA5MzY0NjU1MH0.5p8svtn2EqILvRp9CaCsKB64IS0CJzQnUSVAc2o-ZCk';
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+// --- DB HELPERS --------------------------------------------------------------
+// Supabase column names are lowercase; we map to camelCase used in the UI
+function rowToPupil(r){return{id:r.id,name:r.name,clan:r.clan,yeargroup:r.yeargroup,gender:r.gender,dateAdded:r.dateadded};}
+function rowToRace(r){return{id:r.id,racename:r.racename,yeargroup:r.yeargroup};}
+function rowToEvent(r){return{id:r.id,race_id:r.race_id,year:r.year,bestwinningscore:r.bestwinningscore||''};}
+function rowToScore(r){return{event_id:r.event_id,pupil_id:r.pupil_id,position:r.position};}
+
+const db={
+  async loadAll(){
+    const [p,r,e,s]=await Promise.all([
+      supabase.from('pupil').select('*'),
+      supabase.from('race').select('*'),
+      supabase.from('event').select('*'),
+      supabase.from('scoresheet').select('*'),
+    ]);
+    return{
+      pupils:(p.data||[]).map(rowToPupil),
+      races:(r.data||[]).map(rowToRace),
+      events:(e.data||[]).map(rowToEvent),
+      scoresheet:(s.data||[]).map(rowToScore),
+    };
+  },
+  // PUPILS
+  async addPupil(p){
+    const{data,error}=await supabase.from('pupil').insert({id:p.id,name:p.name,clan:p.clan,yeargroup:p.yeargroup,gender:p.gender,dateadded:p.dateAdded}).select().single();
+    if(error)throw error;return rowToPupil(data);
+  },
+  async updatePupil(p){
+    const{error}=await supabase.from('pupil').update({name:p.name,clan:p.clan,yeargroup:p.yeargroup,gender:p.gender,dateadded:p.dateAdded}).eq('id',p.id);
+    if(error)throw error;
+  },
+  async deletePupil(id){
+    const{error}=await supabase.from('pupil').delete().eq('id',id);
+    if(error)throw error;
+  },
+  async addPupils(list){
+    const rows=list.map(p=>({id:p.id,name:p.name,clan:p.clan,yeargroup:p.yeargroup,gender:p.gender,dateadded:p.dateAdded}));
+    const{error}=await supabase.from('pupil').insert(rows);
+    if(error)throw error;
+  },
+  // RACES
+  async addRace(r){
+    const{data,error}=await supabase.from('race').insert({id:r.id,racename:r.racename,yeargroup:r.yeargroup}).select().single();
+    if(error)throw error;return rowToRace(data);
+  },
+  async updateRace(r){
+    const{error}=await supabase.from('race').update({racename:r.racename,yeargroup:r.yeargroup}).eq('id',r.id);
+    if(error)throw error;
+  },
+  async deleteRace(id){
+    const{error}=await supabase.from('race').delete().eq('id',id);
+    if(error)throw error;
+  },
+  // EVENTS
+  async addEvent(e){
+    const{data,error}=await supabase.from('event').insert({id:e.id,race_id:e.race_id,year:e.year,bestwinningscore:e.bestwinningscore||''}).select().single();
+    if(error)throw error;return rowToEvent(data);
+  },
+  async updateEvent(e){
+    const{error}=await supabase.from('event').update({year:e.year,bestwinningscore:e.bestwinningscore||''}).eq('id',e.id);
+    if(error)throw error;
+  },
+  async deleteEvent(id){
+    const{error}=await supabase.from('event').delete().eq('id',id);
+    if(error)throw error;
+  },
+  // SCORESHEET
+  async addScores(rows){
+    const{error}=await supabase.from('scoresheet').insert(rows.map(s=>({event_id:s.event_id,pupil_id:s.pupil_id,position:s.position??null})));
+    if(error)throw error;
+  },
+  async deleteScores(eventId,pupilIds){
+    let q=supabase.from('scoresheet').delete().eq('event_id',eventId);
+    if(pupilIds)q=q.in('pupil_id',pupilIds);
+    const{error}=await q;if(error)throw error;
+  },
+  async updateScores(eventId,positions){
+    // upsert all position entries for this event
+    const rows=Object.entries(positions).map(([pid,pos])=>({event_id:eventId,pupil_id:Number(pid),position:pos?Number(pos):null}));
+    const{error}=await supabase.from('scoresheet').upsert(rows,{onConflict:'event_id,pupil_id'});
+    if(error)throw error;
+  },
+};
 function useMobile(){
   const [mob,setMob]=useState(()=>window.innerWidth<=640);
   useEffect(()=>{const h=()=>setMob(window.innerWidth<=640);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);
@@ -229,29 +310,87 @@ function Modal({title,onClose,children}){
 }
 
 // --- PUPILS ------------------------------------------------------------------
-function PupilsPage({pupils,setPupils,onBack}){
+function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({name:'',clan:'Douglas',yeargroup:'P5',gender:'M'});
   const [search,setSearch]=useState('');
   const [filterYg,setFilterYg]=useState('');
   const [filterClan,setFilterClan]=useState('');
+  const [filterYear,setFilterYear]=useState('');
+  const [csvReport,setCsvReport]=useState(null);
+  const [saving,setSaving]=useState(false);
   const mob=useMobile();
 
-  function openAdd(){setForm({name:'',clan:'Douglas',yeargroup:'P5',gender:'M'});setModal('add');}
-  function openEdit(p){setForm({...p});setModal('edit');}
-  function save(){
+  const today=new Date().toISOString().slice(0,10);
+  const addedYears=useMemo(()=>[...new Set(pupils.map(p=>(p.dateAdded||'').slice(0,4)).filter(Boolean))].sort((a,b)=>b-a),[pupils]);
+
+  function openAdd(){setForm({name:'',clan:'Douglas',yeargroup:'P5',gender:'M',dateAdded:today});setModal('add');}
+  function openEdit(p){setForm({...p,dateAdded:p.dateAdded||today});setModal('edit');}
+  async function save(){
     if(!form.name.trim())return;
-    if(modal==='add')setPupils([...pupils,{...form,id:Date.now(),name:form.name.trim()}]);
-    else setPupils(pupils.map(p=>p.id===form.id?{...form,name:form.name.trim()}:p));
-    setModal(null);
+    setSaving(true);
+    try{
+      if(modal==='add')await addPupil({...form,id:Date.now(),name:form.name.trim()});
+      else await updatePupil({...form,name:form.name.trim()});
+      setModal(null);
+    }finally{setSaving(false);}
   }
-  function del(id){if(confirm('Delete this pupil?'))setPupils(pupils.filter(p=>p.id!==id));}
+  async function del(id){if(confirm('Delete this pupil?'))await deletePupil(id);}
   function f(field,val){setForm(x=>({...x,[field]:val}));}
+
+  // CSV upload
+  function handleCSV(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    e.target.value='';
+    const reader=new FileReader();
+    reader.onload=evt=>{
+      const lines=evt.target.result.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+      if(lines.length<2){setCsvReport({added:0,dupes:0,errors:['File appears empty or has no data rows.']});setModal('report');return;}
+      const headers=lines[0].split(',').map(h=>h.trim().toLowerCase());
+      const nameIdx=headers.indexOf('name');
+      const genderIdx=headers.indexOf('gender');
+      const clanIdx=headers.indexOf('clan');
+      const ygIdx=headers.indexOf('yeargroup');
+      if([nameIdx,genderIdx,clanIdx,ygIdx].includes(-1)){
+        setCsvReport({added:0,dupes:0,errors:['Missing required columns. Expected: name, gender, clan, yeargroup.']});
+        setModal('report');return;
+      }
+      const newPupils=[];
+      const errors=[];
+      let dupes=0;
+      lines.slice(1).forEach((line,i)=>{
+        const rowNum=i+2;
+        const cols=line.split(',').map(c=>c.trim());
+        const name=cols[nameIdx]||'';
+        const gender=cols[genderIdx]||'';
+        const clan=cols[clanIdx]||'';
+        const yeargroup=cols[ygIdx]||'';
+        if(!name){errors.push(`Row ${rowNum}: missing name.`);return;}
+        if(!['M','F'].includes(gender)){errors.push(`Row ${rowNum} (${name}): invalid gender "${gender}" - must be M or F.`);return;}
+        if(!CLANS.includes(clan)){errors.push(`Row ${rowNum} (${name}): invalid clan "${clan}" - must be one of ${CLANS.join(', ')}.`);return;}
+        if(!YEARGROUPS.includes(yeargroup)){errors.push(`Row ${rowNum} (${name}): invalid year group "${yeargroup}" - must be one of ${YEARGROUPS.join(', ')}.`);return;}
+        // Duplicate check: same name + same dateAdded date
+        const isDupe=[...pupils,...newPupils].some(p=>p.name.toLowerCase()===name.toLowerCase()&&(p.dateAdded||'').slice(0,10)===today);
+        if(isDupe){dupes++;return;}
+        newPupils.push({id:Date.now()+Math.random(),name,gender,clan,yeargroup,dateAdded:today});
+      });
+      try{
+        if(newPupils.length>0)await addPupils(newPupils);
+        setCsvReport({added:newPupils.length,dupes,errors});
+      }catch(e){
+        setCsvReport({added:0,dupes,errors:[...errors,'Database error: '+e.message]});
+      }
+      setModal('report');
+    };
+    reader.readAsText(file);
+  }
 
   const filtered=pupils.filter(p=>
     p.name.toLowerCase().includes(search.toLowerCase())&&
     (!filterYg||p.yeargroup===filterYg)&&
-    (!filterClan||p.clan===filterClan)
+    (!filterClan||p.clan===filterClan)&&
+    (!filterYear||(p.dateAdded||'').slice(0,4)===filterYear)
   );
 
   return (
@@ -259,31 +398,51 @@ function PupilsPage({pupils,setPupils,onBack}){
       <button className="back-link" onClick={onBack}>&larr; Admin</button>
       <div className="section-hd">
         <h1>Pupils <span style={{fontSize:13,fontWeight:400,color:'#999',marginLeft:6}}>{pupils.length}</span></h1>
-        <button className="primary" onClick={openAdd}>+ Add</button>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          <label style={{display:'inline-block'}}>
+            <span className="primary" style={{display:'inline-block',padding:'8px 14px',borderRadius:10,background:'#534ab7',color:'#fff',fontSize:13,cursor:'pointer',border:'1px solid #534ab7',fontFamily:'inherit',fontWeight:400}}>Upload CSV</span>
+            <input type="file" accept=".csv" style={{display:'none'}} onChange={handleCSV}/>
+          </label>
+          <button className="primary" onClick={openAdd}>+ Add</button>
+        </div>
       </div>
+
+      {/* CSV format hint */}
+      <div style={{fontSize:12,color:'#999',marginBottom:'0.875rem'}}>
+        CSV format: <code style={{background:'#f5f4f0',padding:'1px 5px',borderRadius:4}}>name,gender,clan,yeargroup</code>
+        &nbsp;— clan must be one of Douglas, Stuart, Gordon, Forbes. Gender: M or F.
+      </div>
+
       <div style={{display:'flex',gap:8,marginBottom:'0.875rem',flexWrap:'wrap'}}>
-        <input style={{flex:'1 1 160px',minWidth:0}} placeholder="Search?" value={search} onChange={e=>setSearch(e.target.value)}/>
-        <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
+        <input style={{flex:'1 1 140px',minWidth:0}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:110}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
           <option value="">All years</option>
           {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
         </select>
-        <select style={{flex:'0 0 auto',width:'auto',minWidth:110}} value={filterClan} onChange={e=>setFilterClan(e.target.value)}>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:100}} value={filterClan} onChange={e=>setFilterClan(e.target.value)}>
           <option value="">All clans</option>
           {CLANS.map(c=><option key={c}>{c}</option>)}
         </select>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:110}} value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
+          <option value="">All added</option>
+          {addedYears.map(y=><option key={y} value={y}>Added {y}</option>)}
+        </select>
       </div>
+
+      <div style={{fontSize:12,color:'#999',marginBottom:'0.75rem'}}>{filtered.length} of {pupils.length} shown</div>
 
       {/* Desktop table */}
       <div className="card desktop-table" style={{padding:0,overflow:'hidden'}}>
         {filtered.length===0?<p className="empty">No pupils found</p>:
         <table>
-          <thead><tr><th>Name</th><th>Year</th><th>Clan</th><th>Gender</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Year</th><th>Clan</th><th>Gender</th><th>Date added</th><th></th></tr></thead>
           <tbody>{filtered.map(p=>(
             <tr key={p.id}>
               <td style={{fontWeight:500}}>{p.name}</td>
               <td>{p.yeargroup}</td>
               <td><ClanBadge clan={p.clan}/></td>
               <td>{p.gender==='M'?'Boy':'Girl'}</td>
+              <td style={{color:'#888',fontSize:13}}>{p.dateAdded||'—'}</td>
               <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
                 <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(p)}>Edit</button>
                 <button className="sm danger" onClick={()=>del(p.id)}>Delete</button>
@@ -303,6 +462,7 @@ function PupilsPage({pupils,setPupils,onBack}){
               <span>{p.yeargroup}</span>
               <ClanBadge clan={p.clan}/>
               <span>{p.gender==='M'?'Boy':'Girl'}</span>
+              <span style={{color:'#aaa',fontSize:11}}>{p.dateAdded||''}</span>
             </div>
             <div className="row-card-actions">
               <button className="sm" onClick={()=>openEdit(p)}>Edit</button>
@@ -312,7 +472,8 @@ function PupilsPage({pupils,setPupils,onBack}){
         ))}
       </div>
 
-      {modal&&(
+      {/* Add / Edit modal */}
+      {(modal==='add'||modal==='edit')&&(
         <Modal title={modal==='add'?'Add pupil':'Edit pupil'} onClose={()=>setModal(null)}>
           <div className="form-row"><label>Full name</label><input autoFocus value={form.name} onChange={e=>f('name',e.target.value)} placeholder="e.g. Jane Smith"/></div>
           <div className="form-row"><label>Year group</label>
@@ -324,9 +485,44 @@ function PupilsPage({pupils,setPupils,onBack}){
           <div className="form-row"><label>Gender</label>
             <select value={form.gender} onChange={e=>f('gender',e.target.value)}><option value="M">Male</option><option value="F">Female</option></select>
           </div>
+          <div className="form-row"><label>Date added</label>
+            <input type="date" value={form.dateAdded||today} onChange={e=>f('dateAdded',e.target.value)}/>
+          </div>
           <hr className="divider"/>
-          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={save}>Save pupil</button>
+          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={save} disabled={saving}>{saving?'Saving...':'Save pupil'}</button>
           <button style={{width:'100%',padding:12,marginTop:8,fontSize:14}} onClick={()=>setModal(null)}>Cancel</button>
+        </Modal>
+      )}
+
+      {/* CSV upload report modal */}
+      {modal==='report'&&csvReport&&(
+        <Modal title="CSV upload report" onClose={()=>setModal(null)}>
+          <div style={{display:'flex',gap:12,marginBottom:'1.25rem',flexWrap:'wrap'}}>
+            <div style={{flex:1,background:'#dcfce7',borderRadius:10,padding:'12px 16px',textAlign:'center'}}>
+              <div style={{fontSize:28,fontWeight:800,color:'#166534'}}>{csvReport.added}</div>
+              <div style={{fontSize:12,color:'#166534',fontWeight:500}}>Added</div>
+            </div>
+            <div style={{flex:1,background:'#fef9c3',borderRadius:10,padding:'12px 16px',textAlign:'center'}}>
+              <div style={{fontSize:28,fontWeight:800,color:'#854d0e'}}>{csvReport.dupes}</div>
+              <div style={{fontSize:12,color:'#854d0e',fontWeight:500}}>Duplicates skipped</div>
+            </div>
+            <div style={{flex:1,background:'#fee2e2',borderRadius:10,padding:'12px 16px',textAlign:'center'}}>
+              <div style={{fontSize:28,fontWeight:800,color:'#991b1b'}}>{csvReport.errors.length}</div>
+              <div style={{fontSize:12,color:'#991b1b',fontWeight:500}}>Errors</div>
+            </div>
+          </div>
+          {csvReport.errors.length>0&&(
+            <div>
+              <p style={{fontSize:12,fontWeight:600,color:'#666',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.3px'}}>Error details</p>
+              <div style={{background:'#f9f9f7',borderRadius:8,padding:'10px 12px',maxHeight:200,overflowY:'auto'}}>
+                {csvReport.errors.map((e,i)=>(
+                  <div key={i} style={{fontSize:13,color:'#991b1b',padding:'3px 0',borderBottom:'1px solid #f0efea'}}>{e}</div>
+                ))}
+              </div>
+            </div>
+          )}
+          <hr className="divider"/>
+          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={()=>setModal(null)}>Done</button>
         </Modal>
       )}
     </div>
@@ -334,19 +530,23 @@ function PupilsPage({pupils,setPupils,onBack}){
 }
 
 // --- RACES -------------------------------------------------------------------
-function RacesPage({races,setRaces,onBack}){
+function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({racename:'',yeargroup:'P5'});
+  const [saving,setSaving]=useState(false);
 
   function openAdd(){setForm({racename:'',yeargroup:'P5'});setModal('add');}
   function openEdit(r){setForm({...r});setModal('edit');}
-  function save(){
+  async function save(){
     if(!form.racename.trim())return;
-    if(modal==='add')setRaces([...races,{...form,id:Date.now(),racename:form.racename.trim()}]);
-    else setRaces(races.map(r=>r.id===form.id?{...form,racename:form.racename.trim()}:r));
-    setModal(null);
+    setSaving(true);
+    try{
+      if(modal==='add')await addRace({...form,id:Date.now(),racename:form.racename.trim()});
+      else await updateRace({...form,racename:form.racename.trim()});
+      setModal(null);
+    }finally{setSaving(false);}
   }
-  function del(id){if(confirm('Delete this race?'))setRaces(races.filter(r=>r.id!==id));}
+  async function del(id){if(confirm('Delete this race?'))await deleteRace(id);}
 
   return (
     <div className="page mobile-pad">
@@ -393,7 +593,7 @@ function RacesPage({races,setRaces,onBack}){
             <select value={form.yeargroup} onChange={e=>setForm(x=>({...x,yeargroup:e.target.value}))}>{YEARGROUPS.map(y=><option key={y}>{y}</option>)}</select>
           </div>
           <hr className="divider"/>
-          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={save}>Save race</button>
+          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={save} disabled={saving}>{saving?'Saving...':'Save race'}</button>
           <button style={{width:'100%',padding:12,marginTop:8}} onClick={()=>setModal(null)}>Cancel</button>
         </Modal>
       )}
@@ -402,15 +602,23 @@ function RacesPage({races,setRaces,onBack}){
 }
 
 // --- EVENTS ------------------------------------------------------------------
-function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBack}){
+function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scoresheet,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({race_id:'',year:new Date().getFullYear()});
   const [selected,setSelected]=useState([]);
   const [editingEvent,setEditingEvent]=useState(null);
   const [genderFilter,setGenderFilter]=useState('all');
+  const [saving,setSaving]=useState(false);
 
   const getRace=id=>races.find(r=>r.id===id)||{};
-  function getEligible(raceId){const race=getRace(Number(raceId));if(!race.yeargroup)return[];return pupils.filter(p=>p.yeargroup===race.yeargroup);}
+  function getEligible(raceId){
+    const race=getRace(Number(raceId));
+    if(!race.yeargroup)return[];
+    const eventYear=String(form.year);
+    return pupils
+      .filter(p=>p.yeargroup===race.yeargroup&&(p.dateAdded||'').slice(0,4)===eventYear)
+      .sort((a,b)=>a.name.localeCompare(b.name));
+  }
   function getEnrolledIds(eventId){return scoresheet.filter(s=>s.event_id===eventId).map(s=>s.pupil_id);}
   function hasResults(eventId){return scoresheet.some(s=>s.event_id===eventId&&s.position!==null);}
 
@@ -419,30 +627,33 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
   function togglePupil(id){setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);}
   function selectAll(){setSelected(getEligible(form.race_id).map(p=>p.id));}
 
-  function saveEvent(){
+  async function saveEvent(){
     if(!form.race_id)return;
-    const id=Date.now();
-    setEvents([...events,{id,race_id:Number(form.race_id),year:Number(form.year),bestwinningscore:''}]);
-    setScoresheet([...scoresheet,...selected.map(pid=>({event_id:id,pupil_id:pid,position:null}))]);
-    setModal(null);
+    setSaving(true);
+    try{
+      const id=Date.now();
+      const ev={id,race_id:Number(form.race_id),year:Number(form.year),bestwinningscore:''};
+      const scores=selected.map(pid=>({event_id:id,pupil_id:pid,position:null}));
+      await addEvent(ev,scores);
+      setModal(null);
+    }finally{setSaving(false);}
   }
-  function saveEditEvent(){
+  async function saveEditEvent(){
     if(!editingEvent)return;
-    const eid=editingEvent.id;
-    setEvents(events.map(e=>e.id===eid?{...e,year:Number(form.year)}:e));
-    const currentIds=getEnrolledIds(eid);
-    const toAdd=selected.filter(id=>!currentIds.includes(id));
-    const toRemove=currentIds.filter(id=>!selected.includes(id));
-    let ns=scoresheet.filter(s=>{
-      if(s.event_id!==eid)return true;
-      if(toRemove.includes(s.pupil_id)&&!s.position)return false;
-      return true;
-    });
-    ns=[...ns,...toAdd.map(pid=>({event_id:eid,pupil_id:pid,position:null}))];
-    setScoresheet(ns);
-    setModal(null);
+    setSaving(true);
+    try{
+      const eid=editingEvent.id;
+      const ev={...editingEvent,year:Number(form.year)};
+      const currentIds=getEnrolledIds(eid);
+      const toAdd=selected.filter(id=>!currentIds.includes(id)).map(pid=>({event_id:eid,pupil_id:pid,position:null}));
+      const toRemove=currentIds.filter(id=>!selected.includes(id)&&!scoresheet.some(s=>s.event_id===eid&&s.pupil_id===id&&s.position));
+      await updateEvent(ev,toAdd,toRemove);
+      setModal(null);
+    }finally{setSaving(false);}
   }
-  function printEvent(ev){
+  async function del(id){
+    if(confirm('Delete this event and all results?'))await deleteEvent(id);
+  }
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const race = getRace(ev.race_id);
@@ -739,7 +950,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
           {form.race_id&&(
             <div className="form-row">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <label style={{margin:0}}>Eligible pupils</label>
+                <label style={{margin:0}}>Eligible pupils <span style={{fontWeight:400,color:'#aaa',fontSize:11}}>(matching year group + added in {form.year})</span></label>
                 <button style={{fontSize:12,padding:'4px 10px',borderRadius:8}} onClick={selectAll}>Select all</button>
               </div>
               <div style={{display:'flex',gap:6,marginBottom:10}}>
@@ -750,7 +961,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
                 ))}
               </div>
               {eligible.length===0
-                ?<p style={{fontSize:13,color:'#999'}}>No pupils match this year group.</p>
+                ?<p style={{fontSize:13,color:'#999'}}>No pupils match this year group with a date added in {form.year}.</p>
                 :<div className="pill-grid">
                   {eligible.filter(p=>genderFilter==='all'||p.gender===genderFilter).map(p=>{
                     const hasPos=isEdit&&scoresheet.some(s=>s.event_id===editingEvent?.id&&s.pupil_id===p.id&&s.position);
@@ -770,7 +981,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
             </div>
           )}
           <hr className="divider"/>
-          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={isEdit?saveEditEvent:saveEvent}>{isEdit?'Save changes':'Create event'}</button>
+          <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={isEdit?saveEditEvent:saveEvent} disabled={saving}>{saving?'Saving...':(isEdit?'Save changes':'Create event')}</button>
           <button style={{width:'100%',padding:12,marginTop:8}} onClick={()=>setModal(null)}>Cancel</button>
         </Modal>
       )}
@@ -779,11 +990,12 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
 }
 
 // --- RESULTS -----------------------------------------------------------------
-function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
+function ResultsPage({events,races,pupils,scoresheet,saveResults}){
   const [activeId,setActiveId]=useState(null);
   const [positions,setPositions]=useState({});
   const [bws,setBws]=useState('');
   const [saved,setSaved]=useState(false);
+  const [saving,setSaving]=useState(false);
   const mob=useMobile();
 
   const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
@@ -802,13 +1014,12 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
     setPositions(pos);
   }
   function setPos(pupilId,val){setPositions(p=>({...p,[pupilId]:val}));setSaved(false);}
-  function saveResults(){
-    setScoresheet(scoresheet.map(s=>{
-      if(s.event_id!==activeId)return s;
-      return{...s,position:positions[s.pupil_id]?Number(positions[s.pupil_id]):null};
-    }));
-    setEvents(events.map(e=>e.id===activeId?{...e,bestwinningscore:bws}:e));
-    setSaved(true);
+  async function handleSave(){
+    setSaving(true);
+    try{
+      await saveResults(activeId,positions,bws);
+      setSaved(true);
+    }finally{setSaving(false);}
   }
   const usedPositions=Object.entries(positions).map(([,v])=>Number(v)).filter(Boolean);
   function isPosUsed(pupilId,pos){return usedPositions.includes(Number(pos))&&Number(positions[pupilId])!==Number(pos);}
@@ -864,7 +1075,7 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
               {saved&&<span className="saved-toast">? Saved</span>}
-              <button className="primary" style={{padding:'8px 16px',fontSize:14}} onClick={saveResults}>Save</button>
+              <button className="primary" style={{padding:'8px 16px',fontSize:14}} onClick={handleSave} disabled={saving}>{saving?'Saving...':'Save'}</button>
               <button style={{fontSize:13,padding:'8px 12px',color:'#999',border:'1px solid #ddd'}} onClick={()=>setActiveId(null)}>{String.fromCharCode(10005)}</button>
             </div>
           </div>
@@ -1086,30 +1297,112 @@ function AdminPage({setPage,pupils,races,events}){
 
 // --- APP SHELL ---------------------------------------------------------------
 function App(){
-  const [pupils,setPupils]=useStore('sd_pupils',SEED_PUPILS);
-  const [races,setRaces]=useStore('sd_races',SEED_RACES);
-  const [events,setEvents]=useStore('sd_events',SEED_EVENTS);
-  const [scoresheet,setScoresheet]=useStore('sd_scoresheet',SEED_SCORESHEET);
+  const [pupils,setPupils]=useState([]);
+  const [races,setRaces]=useState([]);
+  const [events,setEvents]=useState([]);
+  const [scoresheet,setScoresheet]=useState([]);
   const [page,setPage]=useState('admin');
+  const [loading,setLoading]=useState(true);
+  const [dbError,setDbError]=useState(null);
+
+  // Load all data on mount
+  useEffect(()=>{
+    db.loadAll()
+      .then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);})
+      .catch(e=>setDbError(e.message||'Failed to connect to database.'))
+      .finally(()=>setLoading(false));
+  },[]);
+
   const isAdmin=['admin','pupils','races','events'].includes(page);
 
+  // --- Wrapped setters that sync to Supabase ---
+
+  // PUPILS
+  async function addPupil(p){try{await db.addPupil(p);setPupils(prev=>[...prev,p]);}catch(e){alert('Error saving pupil: '+e.message);}}
+  async function updatePupil(p){try{await db.updatePupil(p);setPupils(prev=>prev.map(x=>x.id===p.id?p:x));}catch(e){alert('Error updating pupil: '+e.message);}}
+  async function deletePupil(id){try{await db.deletePupil(id);setPupils(prev=>prev.filter(x=>x.id!==id));}catch(e){alert('Error deleting pupil: '+e.message);}}
+  async function addPupils(list){try{await db.addPupils(list);setPupils(prev=>[...prev,...list]);}catch(e){alert('Error bulk-inserting pupils: '+e.message);throw e;}}
+
+  // RACES
+  async function addRace(r){try{await db.addRace(r);setRaces(prev=>[...prev,r]);}catch(e){alert('Error saving race: '+e.message);}}
+  async function updateRace(r){try{await db.updateRace(r);setRaces(prev=>prev.map(x=>x.id===r.id?r:x));}catch(e){alert('Error updating race: '+e.message);}}
+  async function deleteRace(id){try{await db.deleteRace(id);setRaces(prev=>prev.filter(x=>x.id!==id));}catch(e){alert('Error deleting race: '+e.message);}}
+
+  // EVENTS
+  async function addEvent(ev,scores){
+    try{
+      await db.addEvent(ev);
+      if(scores.length>0)await db.addScores(scores);
+      setEvents(prev=>[...prev,ev]);
+      setScoresheet(prev=>[...prev,...scores]);
+    }catch(e){alert('Error saving event: '+e.message);}
+  }
+  async function updateEvent(ev,toAdd,toRemove){
+    try{
+      await db.updateEvent(ev);
+      if(toRemove.length>0)await db.deleteScores(ev.id,toRemove);
+      if(toAdd.length>0)await db.addScores(toAdd);
+      setEvents(prev=>prev.map(x=>x.id===ev.id?ev:x));
+      setScoresheet(prev=>{
+        let s=prev.filter(x=>!(x.event_id===ev.id&&toRemove.includes(x.pupil_id)));
+        return[...s,...toAdd];
+      });
+    }catch(e){alert('Error updating event: '+e.message);}
+  }
+  async function deleteEvent(id){
+    try{
+      await db.deleteScores(id);
+      await db.deleteEvent(id);
+      setEvents(prev=>prev.filter(x=>x.id!==id));
+      setScoresheet(prev=>prev.filter(x=>x.event_id!==id));
+    }catch(e){alert('Error deleting event: '+e.message);}
+  }
+
+  // RESULTS
+  async function saveResults(eventId,positions,bws){
+    try{
+      await db.updateScores(eventId,positions);
+      await db.updateEvent({...events.find(e=>e.id===eventId),bestwinningscore:bws});
+      setScoresheet(prev=>prev.map(s=>{
+        if(s.event_id!==eventId)return s;
+        return{...s,position:positions[s.pupil_id]?Number(positions[s.pupil_id]):null};
+      }));
+      setEvents(prev=>prev.map(e=>e.id===eventId?{...e,bestwinningscore:bws}:e));
+    }catch(e){alert('Error saving results: '+e.message);}
+  }
+
   const NAV=[
-    {id:'admin',label:'Admin',icon:'??'},
-    {id:'results',label:'Results',icon:'?'},
-    {id:'leaderboard',label:'Board',icon:'?'},
+    {id:'admin',label:'Admin',icon:'A'},
+    {id:'results',label:'Results',icon:'R'},
+    {id:'leaderboard',label:'Board',icon:'L'},
   ];
+
+  if(loading)return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',gap:16}}>
+      <div style={{width:40,height:40,border:'3px solid #e8e6e0',borderTop:'3px solid #534ab7',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <p style={{color:'#666',fontSize:14}}>Connecting to database...</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if(dbError)return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',gap:12,padding:'2rem',textAlign:'center'}}>
+      <div style={{fontSize:32}}>!</div>
+      <h2 style={{color:'#991b1b'}}>Database connection failed</h2>
+      <p style={{color:'#666',fontSize:14,maxWidth:400}}>{dbError}</p>
+      <p style={{color:'#999',fontSize:12}}>Check your Supabase project is running and RLS is disabled on all tables.</p>
+      <button className="primary" onClick={()=>{setDbError(null);setLoading(true);db.loadAll().then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);}).catch(e=>setDbError(e.message)).finally(()=>setLoading(false));}}>Retry</button>
+    </div>
+  );
 
   return (
     <>
-      {/* Desktop top nav */}
       <nav className="top-nav">
-        <span className="nav-brand">? Sports Day</span>
+        <span className="nav-brand">Sports Day</span>
         <button className={`top-nav-btn${isAdmin?' active':''}`} onClick={()=>setPage('admin')}>Admin</button>
         <button className={`top-nav-btn${page==='results'?' active':''}`} onClick={()=>setPage('results')}>Results</button>
         <button className={`top-nav-btn${page==='leaderboard'?' active':''}`} onClick={()=>setPage('leaderboard')}>Leaderboard</button>
       </nav>
-
-      {/* Mobile bottom nav */}
       <div className="bottom-nav">
         <div className="bottom-nav-inner">
           {NAV.map(n=>(
@@ -1120,12 +1413,11 @@ function App(){
           ))}
         </div>
       </div>
-
       {page==='admin'&&<AdminPage setPage={setPage} pupils={pupils} races={races} events={events}/>}
-      {page==='pupils'&&<PupilsPage pupils={pupils} setPupils={setPupils} onBack={()=>setPage('admin')}/>}
-      {page==='races'&&<RacesPage races={races} setRaces={setRaces} onBack={()=>setPage('admin')}/>}
-      {page==='events'&&<EventsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet} onBack={()=>setPage('admin')}/>}
-      {page==='results'&&<ResultsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet}/>}
+      {page==='pupils'&&<PupilsPage pupils={pupils} addPupil={addPupil} updatePupil={updatePupil} deletePupil={deletePupil} addPupils={addPupils} onBack={()=>setPage('admin')}/>}
+      {page==='races'&&<RacesPage races={races} addRace={addRace} updateRace={updateRace} deleteRace={deleteRace} onBack={()=>setPage('admin')}/>}
+      {page==='events'&&<EventsPage events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} races={races} pupils={pupils} scoresheet={scoresheet} onBack={()=>setPage('admin')}/>}
+      {page==='results'&&<ResultsPage events={events} races={races} pupils={pupils} scoresheet={scoresheet} saveResults={saveResults}/>}
       {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet} events={events}/>}
     </>
   );
