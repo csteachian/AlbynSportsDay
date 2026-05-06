@@ -344,7 +344,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
     if(!file)return;
     e.target.value='';
     const reader=new FileReader();
-    reader.onload=evt=>{
+    reader.onload=async evt=>{
       const lines=evt.target.result.replace(/\r/g,'').split('\n').filter(l=>l.trim());
       if(lines.length<2){setCsvReport({added:0,dupes:0,errors:['File appears empty or has no data rows.']});setModal('report');return;}
       const headers=lines[0].split(',').map(h=>h.trim().toLowerCase());
