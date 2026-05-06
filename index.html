@@ -7,6 +7,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh}
@@ -219,7 +220,7 @@ function Modal({title,onClose,children}){
         <div className="modal-handle"/>
         <div className="modal-header">
           <h3>{title}</h3>
-          <button className="ghost" onClick={onClose} style={{fontSize:20,lineHeight:1,padding:'4px 8px'}}>✕</button>
+          <button className="ghost" onClick={onClose} style={{fontSize:20,lineHeight:1,padding:'4px 8px'}}>{String.fromCharCode(10005)}</button>
         </div>
         {children}
       </div>
@@ -227,7 +228,7 @@ function Modal({title,onClose,children}){
   );
 }
 
-// ─── PUPILS ──────────────────────────────────────────────────────────────────
+// --- PUPILS ------------------------------------------------------------------
 function PupilsPage({pupils,setPupils,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({name:'',clan:'Douglas',yeargroup:'P5',gender:'M'});
@@ -255,13 +256,13 @@ function PupilsPage({pupils,setPupils,onBack}){
 
   return (
     <div className="page mobile-pad">
-      <button className="back-link" onClick={onBack}>← Admin</button>
+      <button className="back-link" onClick={onBack}>&larr; Admin</button>
       <div className="section-hd">
         <h1>Pupils <span style={{fontSize:13,fontWeight:400,color:'#999',marginLeft:6}}>{pupils.length}</span></h1>
         <button className="primary" onClick={openAdd}>+ Add</button>
       </div>
       <div style={{display:'flex',gap:8,marginBottom:'0.875rem',flexWrap:'wrap'}}>
-        <input style={{flex:'1 1 160px',minWidth:0}} placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <input style={{flex:'1 1 160px',minWidth:0}} placeholder="Search?" value={search} onChange={e=>setSearch(e.target.value)}/>
         <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
           <option value="">All years</option>
           {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
@@ -332,7 +333,7 @@ function PupilsPage({pupils,setPupils,onBack}){
   );
 }
 
-// ─── RACES ───────────────────────────────────────────────────────────────────
+// --- RACES -------------------------------------------------------------------
 function RacesPage({races,setRaces,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({racename:'',yeargroup:'P5'});
@@ -349,7 +350,7 @@ function RacesPage({races,setRaces,onBack}){
 
   return (
     <div className="page mobile-pad">
-      <button className="back-link" onClick={onBack}>← Admin</button>
+      <button className="back-link" onClick={onBack}>&larr; Admin</button>
       <div className="section-hd">
         <h1>Races <span style={{fontSize:13,fontWeight:400,color:'#999',marginLeft:6}}>{races.length}</span></h1>
         <button className="primary" onClick={openAdd}>+ Add</button>
@@ -400,7 +401,7 @@ function RacesPage({races,setRaces,onBack}){
   );
 }
 
-// ─── EVENTS ──────────────────────────────────────────────────────────────────
+// --- EVENTS ------------------------------------------------------------------
 function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({race_id:'',year:new Date().getFullYear()});
@@ -441,6 +442,115 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
     setScoresheet(ns);
     setModal(null);
   }
+  function printEvent(ev){
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const race = getRace(ev.race_id);
+    const competitors = getEnrolledIds(ev.id).map(id=>pupils.find(p=>p.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    const pageW = 210;
+    const pageH = 297;
+    const margin = 20;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    // Header bar
+    doc.setFillColor(83, 74, 183);
+    doc.rect(0, 0, pageW, 22, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    doc.text('Sports Day - Event Sheet', margin, 14);
+
+    y = 36;
+
+    // Event details block
+    doc.setTextColor(30,30,24);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(18);
+    doc.text(race.racename || 'Event', margin, y);
+    y += 8;
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.setTextColor(100,100,100);
+    doc.text(`Year group: ${race.yeargroup || '-'}   .   Year: ${ev.year}   .   Competitors: ${competitors.length}`, margin, y);
+    y += 10;
+
+    // Divider
+    doc.setDrawColor(220,218,210);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 10;
+
+    // Competitors table header
+    doc.setFillColor(245,244,240);
+    doc.rect(margin, y, contentW, 8, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100,100,100);
+    doc.text('NO.', margin + 3, y + 5.5);
+    doc.text('COMPETITOR', margin + 14, y + 5.5);
+    doc.text('CLAN', margin + 90, y + 5.5);
+    doc.text('POSITION', margin + 130, y + 5.5);
+    y += 8;
+
+    // Competitor rows
+    const rowH = 12;
+    competitors.forEach((p, i) => {
+      const rowY = y + i * rowH;
+      if(i % 2 === 0){
+        doc.setFillColor(252,252,250);
+        doc.rect(margin, rowY, contentW, rowH, 'F');
+      }
+      doc.setDrawColor(235,233,228);
+      doc.setLineWidth(0.3);
+      doc.line(margin, rowY + rowH, pageW - margin, rowY + rowH);
+
+      // Number
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(83,74,183);
+      doc.text(String(i + 1), margin + 3, rowY + 8);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(11);
+      doc.setTextColor(30,30,24);
+      doc.text(p.name, margin + 14, rowY + 8);
+
+      doc.setFontSize(10);
+      doc.setTextColor(80,80,80);
+      doc.text(p.clan, margin + 90, rowY + 8);
+
+      // Position write-in box
+      doc.setDrawColor(180,178,170);
+      doc.setLineWidth(0.5);
+      doc.rect(margin + 130, rowY + 2, 28, 8);
+    });
+
+    y += competitors.length * rowH + 14;
+
+    // Winning score box
+    doc.setDrawColor(83,74,183);
+    doc.setLineWidth(1);
+    doc.rect(margin, y, contentW, 22);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(83,74,183);
+    doc.text('WINNING SCORE / TIME / DISTANCE', margin + 4, y + 8);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(180,178,170);
+    doc.setFontSize(9);
+    doc.text('Write result here', margin + 4, y + 16);
+
+    // Footer
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(180,178,170);
+    doc.text(`Printed ${new Date().toLocaleDateString('en-GB')}`, margin, pageH - 10);
+
+    const filename = `${race.racename||'event'}_${ev.year}`.replace(/\s+/g,'-').toLowerCase();
+    doc.save(`${filename}.pdf`);
+  }
   function del(id){
     if(confirm('Delete this event and all results?')){
       setEvents(events.filter(e=>e.id!==id));
@@ -451,13 +561,119 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
   const eligible=getEligible(form.race_id);
   const isEdit=modal==='edit';
 
+  const availableYears=[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a);
+  const [printYear,setPrintYear]=useState(()=>availableYears[0]||new Date().getFullYear());
+
+  function printAllEvents(){
+    const {jsPDF}=window.jspdf;
+    const eventsForYear=events.filter(e=>e.year===Number(printYear));
+    if(eventsForYear.length===0){alert('No events found for '+printYear);return;}
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pageW=210,pageH=297,margin=20,contentW=pageW-margin*2;
+
+    eventsForYear.forEach((ev,evIdx)=>{
+      if(evIdx>0)doc.addPage();
+      const race=getRace(ev.race_id);
+      const competitors=getEnrolledIds(ev.id).map(id=>pupils.find(p=>p.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+      let y=margin;
+
+      // Header bar
+      doc.setFillColor(83,74,183);
+      doc.rect(0,0,pageW,22,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(11);
+      doc.text('Sports Day - Event Sheet',margin,14);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      doc.text(`${evIdx+1} of ${eventsForYear.length}`,pageW-margin,14,'right');
+
+      y=36;
+
+      // Event title
+      doc.setTextColor(30,30,24);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(18);
+      doc.text(race.racename||'Event',margin,y);
+      y+=8;
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100,100,100);
+      doc.text('Year group: '+(race.yeargroup||'-')+'   Year: '+ev.year+'   Competitors: '+competitors.length,margin,y);
+      y+=10;
+
+      doc.setDrawColor(220,218,210);
+      doc.setLineWidth(0.5);
+      doc.line(margin,y,pageW-margin,y);
+      y+=10;
+
+      // Table header
+      doc.setFillColor(245,244,240);
+      doc.rect(margin,y,contentW,8,'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9);
+      doc.setTextColor(100,100,100);
+      doc.text('NO.',margin+3,y+5.5);
+      doc.text('COMPETITOR',margin+14,y+5.5);
+      doc.text('CLAN',margin+90,y+5.5);
+      doc.text('POSITION',margin+130,y+5.5);
+      y+=8;
+
+      const rowH=12;
+      competitors.forEach((p,i)=>{
+        const rowY=y+i*rowH;
+        if(i%2===0){doc.setFillColor(252,252,250);doc.rect(margin,rowY,contentW,rowH,'F');}
+        doc.setDrawColor(235,233,228);doc.setLineWidth(0.3);
+        doc.line(margin,rowY+rowH,pageW-margin,rowY+rowH);
+        doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(83,74,183);
+        doc.text(String(i+1),margin+3,rowY+8);
+        doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(30,30,24);
+        doc.text(p.name,margin+14,rowY+8);
+        doc.setFontSize(10);doc.setTextColor(80,80,80);
+        doc.text(p.clan,margin+90,rowY+8);
+        doc.setDrawColor(180,178,170);doc.setLineWidth(0.5);
+        doc.rect(margin+130,rowY+2,28,8);
+      });
+
+      y+=competitors.length*rowH+14;
+
+      // Winning score box
+      doc.setDrawColor(83,74,183);doc.setLineWidth(1);
+      doc.rect(margin,y,contentW,22);
+      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(83,74,183);
+      doc.text('WINNING SCORE / TIME / DISTANCE',margin+4,y+8);
+      doc.setFont('helvetica','normal');doc.setTextColor(180,178,170);doc.setFontSize(9);
+      doc.text('Write result here',margin+4,y+16);
+
+      // Footer
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(180,178,170);
+      doc.text('Printed '+new Date().toLocaleDateString('en-GB'),margin,pageH-10);
+    });
+
+    doc.save('sports-day-events-'+printYear+'.pdf');
+  }
+
   return (
     <div className="page mobile-pad">
-      <button className="back-link" onClick={onBack}>← Admin</button>
+      <button className="back-link" onClick={onBack}>&larr; Admin</button>
       <div className="section-hd">
         <h1>Events <span style={{fontSize:13,fontWeight:400,color:'#999',marginLeft:6}}>{events.length}</span></h1>
         <button className="primary" onClick={openAdd} disabled={races.length===0}>+ Add</button>
       </div>
+      {events.length>0&&(
+        <div className="card" style={{marginBottom:'1rem',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <span style={{fontSize:13,fontWeight:600,color:'#444',flexShrink:0}}>Print all events for year:</span>
+          <select value={printYear} onChange={e=>setPrintYear(e.target.value)} style={{width:'auto',minWidth:90,flex:'0 0 auto'}}>
+            {availableYears.length>0
+              ?availableYears.map(y=><option key={y} value={y}>{y}</option>)
+              :<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+            }
+          </select>
+          <button className="primary" onClick={printAllEvents} style={{flexShrink:0}}>Print all events</button>
+          <span style={{fontSize:12,color:'#999'}}>{events.filter(e=>e.year===Number(printYear)).length} event{events.filter(e=>e.year===Number(printYear)).length!==1?'s':''} in {printYear}</span>
+        </div>
+      )}
       {races.length===0&&<div className="card" style={{marginBottom:'1rem',borderColor:'#fcd34d',background:'#fffbeb'}}><p className="info-text">Add a race first.</p></div>}
 
       <div className="card desktop-table" style={{padding:0,overflow:'hidden'}}>
@@ -469,10 +685,11 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
             const count=scoresheet.filter(s=>s.event_id===ev.id).length;
             const done=hasResults(ev.id);
             return(<tr key={ev.id}>
-              <td style={{fontWeight:500}}>{race.racename||'—'}</td>
-              <td>{race.yeargroup||'—'}</td><td>{ev.year}</td><td>{count}</td>
+              <td style={{fontWeight:500}}>{race.racename||'-'}</td>
+              <td>{race.yeargroup||'-'}</td><td>{ev.year}</td><td>{count}</td>
               <td><span className={`badge ${done?'badge-done':'badge-pending'}`}>{done?'Entered':'Pending'}</span></td>
               <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                <button className="sm" style={{marginRight:4}} onClick={()=>printEvent(ev)}>Print</button>
                 <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(ev)}>Edit</button>
                 <button className="sm danger" onClick={()=>del(ev.id)}>Delete</button>
               </td>
@@ -490,13 +707,14 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
           return(
             <div key={ev.id} className="row-card">
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                <div className="row-card-title">{race.racename||'—'}</div>
+                <div className="row-card-title">{race.racename||'-'}</div>
                 <span className={`badge ${done?'badge-done':'badge-pending'}`}>{done?'Entered':'Pending'}</span>
               </div>
               <div className="row-card-meta">
-                <span>{race.yeargroup}</span><span>·</span><span>{ev.year}</span><span>·</span><span>{count} pupils</span>
+                <span>{race.yeargroup}</span><span>.</span><span>{ev.year}</span><span>.</span><span>{count} pupils</span>
               </div>
               <div className="row-card-actions">
+                <button className="sm" onClick={()=>printEvent(ev)}>Print</button>
                 <button className="sm" onClick={()=>openEdit(ev)}>Edit</button>
                 <button className="sm danger" onClick={()=>del(ev.id)}>Delete</button>
               </div>
@@ -510,7 +728,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
           <div className="form-row">
             <label>Race</label>
             {isEdit
-              ?<p style={{fontSize:14,fontWeight:500,padding:'4px 0'}}>{getRace(editingEvent.race_id).racename} ({getRace(editingEvent.race_id).yeargroup}) <span style={{fontSize:12,color:'#999',fontWeight:400}}>— cannot change</span></p>
+              ?<p style={{fontSize:14,fontWeight:500,padding:'4px 0'}}>{getRace(editingEvent.race_id).racename} ({getRace(editingEvent.race_id).yeargroup}) <span style={{fontSize:12,color:'#999',fontWeight:400}}>- cannot change</span></p>
               :<select value={form.race_id} onChange={e=>{setForm(x=>({...x,race_id:e.target.value}));setSelected([]);}}>{races.map(r=><option key={r.id} value={r.id}>{r.racename} ({r.yeargroup})</option>)}</select>
             }
           </div>
@@ -542,7 +760,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
                         style={hasPos?{opacity:0.5,cursor:'not-allowed'}:{}}
                       >
                         {p.name} <span style={{opacity:0.6,fontSize:11}}>({p.gender==='M'?'Boy':'Girl'})</span>
-                        {hasPos&&<span style={{marginLeft:4,fontSize:10}}>✓</span>}
+                        {hasPos&&<span style={{marginLeft:4,fontSize:10}}>?</span>}
                       </span>
                     );
                   })}
@@ -560,7 +778,7 @@ function EventsPage({events,setEvents,races,pupils,scoresheet,setScoresheet,onBa
   );
 }
 
-// ─── RESULTS ─────────────────────────────────────────────────────────────────
+// --- RESULTS -----------------------------------------------------------------
 function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
   const [activeId,setActiveId]=useState(null);
   const [positions,setPositions]=useState({});
@@ -571,7 +789,7 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
   const getRace=id=>races.find(r=>r.id===id)||{};
   const hasResults=eventId=>scoresheet.some(s=>s.event_id===eventId&&s.position!==null);
   const activeEvent=events.find(e=>e.id===activeId);
-  const enrolled=activeEvent?scoresheet.filter(s=>s.event_id===activeEvent.id).map(s=>pupils.find(p=>p.id===s.pupil_id)).filter(Boolean):[];
+  const enrolled=activeEvent?scoresheet.filter(s=>s.event_id===activeEvent.id).map(s=>pupils.find(p=>p.id===s.pupil_id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name)):[];
 
   function openEvent(ev){
     setActiveId(ev.id);setSaved(false);setBws(ev.bestwinningscore||'');
@@ -612,11 +830,11 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
               borderRadius:12,padding:'0.875rem 1rem',cursor:'pointer',
               opacity:done?0.78:1,transition:'all 0.15s',position:'relative',
             }}>
-              {done&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:600,background:'#dcfce7',color:'#166534',padding:'2px 6px',borderRadius:4}}>✓ Done</span>}
-              <div style={{fontWeight:700,fontSize:14,marginBottom:2,color:done?'#555':'#1a1a18',paddingRight:done?46:0}}>{race.racename||'—'}</div>
-              <div style={{fontSize:12,color:'#888',marginBottom:6}}>{race.yeargroup} · {ev.year}</div>
+              {done&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:600,background:'#dcfce7',color:'#166534',padding:'2px 6px',borderRadius:4}}>? Done</span>}
+              <div style={{fontWeight:700,fontSize:14,marginBottom:2,color:done?'#555':'#1a1a18',paddingRight:done?46:0}}>{race.racename||'-'}</div>
+              <div style={{fontSize:12,color:'#888',marginBottom:6}}>{race.yeargroup} . {ev.year}</div>
               <div style={{fontSize:12,color:done?'#888':'#534ab7',fontWeight:500}}>{enteredCount(ev)}/{enrolledCount(ev)} entered</div>
-              {ev.bestwinningscore&&<div style={{fontSize:12,color:'#666',marginTop:3}}>🏆 {ev.bestwinningscore}</div>}
+              {ev.bestwinningscore&&<div style={{fontSize:12,color:'#666',marginTop:3}}>? {ev.bestwinningscore}</div>}
             </div>
           );
         })}
@@ -624,12 +842,16 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
 
       {activeEvent&&(
         <div style={{borderTop:'2px solid #534ab7',paddingTop:'1.5rem'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1rem',flexWrap:'wrap'}}>
-            <div style={{flex:1}}>
-              <h2 style={{margin:0,fontSize:18}}>{getRace(activeEvent.race_id).racename}</h2>
-              <span style={{fontSize:13,color:'#888'}}>{getRace(activeEvent.race_id).yeargroup} · {activeEvent.year}</span>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <h2 style={{margin:0,fontSize:18,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{getRace(activeEvent.race_id).racename}</h2>
+              <span style={{fontSize:13,color:'#888'}}>{getRace(activeEvent.race_id).yeargroup} . {activeEvent.year}</span>
             </div>
-            <button style={{fontSize:13,padding:'6px 12px',color:'#999',border:'1px solid #ddd'}} onClick={()=>setActiveId(null)}>✕ Close</button>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
+              {saved&&<span className="saved-toast">? Saved</span>}
+              <button className="primary" style={{padding:'8px 16px',fontSize:14}} onClick={saveResults}>Save</button>
+              <button style={{fontSize:13,padding:'8px 12px',color:'#999',border:'1px solid #ddd'}} onClick={()=>setActiveId(null)}>{String.fromCharCode(10005)}</button>
+            </div>
           </div>
 
           <div className="card" style={{marginBottom:'1rem'}}>
@@ -657,13 +879,13 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
                   <td><ClanBadge clan={p.clan}/></td>
                   <td style={{width:130}}>
                     <select value={pos} onChange={e=>setPos(p.id,e.target.value)} style={{maxWidth:120}}>
-                      <option value="">—</option>
+                      <option value="">-</option>
                       {[1,2,3,4,5,6,7,8].map(n=>(
                         <option key={n} value={n} disabled={isPosUsed(p.id,n)}>{n}{isPosUsed(p.id,n)?' (taken)':''}</option>
                       ))}
                     </select>
                   </td>
-                  <td style={{fontWeight:700,color:pts?'#534ab7':'#ccc',fontSize:15}}>{pts||'—'}</td>
+                  <td style={{fontWeight:700,color:pts?'#534ab7':'#ccc',fontSize:15}}>{pts||'-'}</td>
                 </tr>);
               })}</tbody>
             </table>}
@@ -710,17 +932,14 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
             })}
           </div>
 
-          <div style={{display:'flex',justifyContent:'flex-end',gap:12,alignItems:'center'}}>
-            {saved&&<span className="saved-toast">✓ Saved</span>}
-            <button className="primary" style={{padding:'12px 24px',fontSize:15}} onClick={saveResults}>Save results</button>
-          </div>
+
         </div>
       )}
     </div>
   );
 }
 
-// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
+// --- LEADERBOARD -------------------------------------------------------------
 function LeaderboardPage({pupils,scoresheet}){
   const [tab,setTab]=useState('clans');
 
@@ -800,7 +1019,7 @@ function LeaderboardPage({pupils,scoresheet}){
   );
 }
 
-// ─── ADMIN HUB ───────────────────────────────────────────────────────────────
+// --- ADMIN HUB ---------------------------------------------------------------
 function AdminPage({setPage,pupils,races,events}){
   return (
     <div className="page mobile-pad">
@@ -808,19 +1027,19 @@ function AdminPage({setPage,pupils,races,events}){
       <p className="info-text" style={{marginBottom:'1.25rem'}}>Set up the database before sports day.</p>
       <div className="admin-grid">
         <div className="admin-card" onClick={()=>setPage('pupils')}>
-          <div className="icon">👤</div>
+          <div className="icon">?</div>
           <h3>Pupils</h3>
           <p>Add and manage pupils.</p>
           <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{pupils.length} pupils</p>
         </div>
         <div className="admin-card" onClick={()=>setPage('races')}>
-          <div className="icon">🏁</div>
+          <div className="icon">?</div>
           <h3>Races</h3>
           <p>Define race templates.</p>
           <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{races.length} races</p>
         </div>
         <div className="admin-card" onClick={()=>setPage('events')}>
-          <div className="icon">📋</div>
+          <div className="icon">?</div>
           <h3>Events</h3>
           <p>Create events and enrol pupils.</p>
           <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{events.length} events</p>
@@ -830,7 +1049,7 @@ function AdminPage({setPage,pupils,races,events}){
   );
 }
 
-// ─── APP SHELL ───────────────────────────────────────────────────────────────
+// --- APP SHELL ---------------------------------------------------------------
 function App(){
   const [pupils,setPupils]=useStore('sd_pupils',SEED_PUPILS);
   const [races,setRaces]=useStore('sd_races',SEED_RACES);
@@ -840,16 +1059,16 @@ function App(){
   const isAdmin=['admin','pupils','races','events'].includes(page);
 
   const NAV=[
-    {id:'admin',label:'Admin',icon:'⚙️'},
-    {id:'results',label:'Results',icon:'📝'},
-    {id:'leaderboard',label:'Board',icon:'🏆'},
+    {id:'admin',label:'Admin',icon:'??'},
+    {id:'results',label:'Results',icon:'?'},
+    {id:'leaderboard',label:'Board',icon:'?'},
   ];
 
   return (
     <>
       {/* Desktop top nav */}
       <nav className="top-nav">
-        <span className="nav-brand">🏅 Sports Day</span>
+        <span className="nav-brand">? Sports Day</span>
         <button className={`top-nav-btn${isAdmin?' active':''}`} onClick={()=>setPage('admin')}>Admin</button>
         <button className={`top-nav-btn${page==='results'?' active':''}`} onClick={()=>setPage('results')}>Results</button>
         <button className={`top-nav-btn${page==='leaderboard'?' active':''}`} onClick={()=>setPage('leaderboard')}>Leaderboard</button>
