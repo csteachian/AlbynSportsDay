@@ -786,6 +786,10 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
   const [saved,setSaved]=useState(false);
   const mob=useMobile();
 
+  const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
+  const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
+  const filteredEvents=useMemo(()=>events.filter(e=>e.year===Number(selectedYear)),[events,selectedYear]);
+
   const getRace=id=>races.find(r=>r.id===id)||{};
   const hasResults=eventId=>scoresheet.some(s=>s.event_id===eventId&&s.position!==null);
   const activeEvent=events.find(e=>e.id===activeId);
@@ -814,12 +818,23 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
 
   return (
     <div className="page mobile-pad">
-      <h1 style={{marginBottom:'0.25rem'}}>Results</h1>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'0.25rem',flexWrap:'wrap',gap:10}}>
+        <h1 style={{margin:0}}>Results</h1>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:13,color:'#666',fontWeight:500}}>Year:</span>
+          <select value={selectedYear} onChange={e=>{setSelectedYear(e.target.value);setActiveId(null);}} style={{width:'auto',minWidth:80}}>
+            {availableYears.length>0
+              ?availableYears.map(y=><option key={y} value={y}>{y}</option>)
+              :<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+            }
+          </select>
+        </div>
+      </div>
       <p className="info-text" style={{marginBottom:'1.25rem'}}>Tap an event to enter or edit results.</p>
-      {events.length===0&&<p className="empty">No events set up yet.</p>}
+      {filteredEvents.length===0&&<p className="empty">No events for {selectedYear}.</p>}
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem',marginBottom:'1.5rem'}}>
-        {events.map(ev=>{
+        {filteredEvents.map(ev=>{
           const race=getRace(ev.race_id);
           const done=hasResults(ev.id);
           const isActive=activeId===ev.id;
@@ -940,14 +955,23 @@ function ResultsPage({events,setEvents,races,pupils,scoresheet,setScoresheet}){
 }
 
 // --- LEADERBOARD -------------------------------------------------------------
-function LeaderboardPage({pupils,scoresheet}){
+function LeaderboardPage({pupils,scoresheet,events}){
   const [tab,setTab]=useState('clans');
+
+  const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
+  const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
+
+  // IDs of events in the selected year
+  const yearEventIds=useMemo(()=>new Set(events.filter(e=>e.year===Number(selectedYear)).map(e=>e.id)),[events,selectedYear]);
+
+  // Scoresheet entries filtered to selected year's events only
+  const filteredScoresheet=useMemo(()=>scoresheet.filter(s=>yearEventIds.has(s.event_id)),[scoresheet,yearEventIds]);
 
   const individualPoints=useMemo(()=>{
     const t={};
-    scoresheet.forEach(s=>{if(!s.position)return;t[s.pupil_id]=(t[s.pupil_id]||0)+(POINTS_MAP[s.position]||0);});
+    filteredScoresheet.forEach(s=>{if(!s.position)return;t[s.pupil_id]=(t[s.pupil_id]||0)+(POINTS_MAP[s.position]||0);});
     return t;
-  },[scoresheet]);
+  },[filteredScoresheet]);
 
   const clanTotals=useMemo(()=>{
     const t={};CLANS.forEach(c=>t[c]=0);
@@ -966,7 +990,18 @@ function LeaderboardPage({pupils,scoresheet}){
 
   return (
     <div className="page mobile-pad">
-      <h1 style={{marginBottom:'1rem'}}>Leaderboard</h1>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:10}}>
+        <h1 style={{margin:0}}>Leaderboard</h1>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:13,color:'#666',fontWeight:500}}>Year:</span>
+          <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{width:'auto',minWidth:80}}>
+            {availableYears.length>0
+              ?availableYears.map(y=><option key={y} value={y}>{y}</option>)
+              :<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+            }
+          </select>
+        </div>
+      </div>
       <div className="tab-bar">
         <button className={`tab-btn${tab==='clans'?' active':''}`} onClick={()=>setTab('clans')}>Clan standings</button>
         <button className={`tab-btn${tab==='individual'?' active':''}`} onClick={()=>setTab('individual')}>Individual</button>
@@ -974,7 +1009,7 @@ function LeaderboardPage({pupils,scoresheet}){
 
       {tab==='clans'&&(
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          {clanTotals.every(c=>c.points===0)?<p className="empty">No results yet.</p>:
+          {clanTotals.every(c=>c.points===0)?<p className="empty">No results for {selectedYear} yet.</p>:
           clanTotals.map((c,i)=>(
             <div key={c.clan} className="lb-row">
               <div className={`rank-circle rank-${i<3?i+1:'n'}`}>{i+1}</div>
@@ -988,7 +1023,7 @@ function LeaderboardPage({pupils,scoresheet}){
 
       {tab==='individual'&&(
         <div>
-          {yearGroupData.filter(d=>d.hasData).length===0&&<p className="empty">No results yet.</p>}
+          {yearGroupData.filter(d=>d.hasData).length===0&&<p className="empty">No results for {selectedYear} yet.</p>}
           {yearGroupData.map(({yg,boys,girls,hasData})=>{
             if(!hasData)return null;
             return(
@@ -1091,7 +1126,7 @@ function App(){
       {page==='races'&&<RacesPage races={races} setRaces={setRaces} onBack={()=>setPage('admin')}/>}
       {page==='events'&&<EventsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet} onBack={()=>setPage('admin')}/>}
       {page==='results'&&<ResultsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet}/>}
-      {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet}/>}
+      {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet} events={events}/>}
     </>
   );
 }
