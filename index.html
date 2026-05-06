@@ -655,6 +655,7 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
     if(confirm('Delete this event and all results?'))await deleteEvent(id);
   }
   function printEvent(ev){
+    const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const race = getRace(ev.race_id);
     const competitors = getEnrolledIds(ev.id).map(id=>pupils.find(p=>p.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
