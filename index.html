@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sports Day</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh}
+input,select,textarea{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;width:100%;background:#fff;color:#1a1a18;outline:none}
+input:focus,select:focus{border-color:#534ab7;box-shadow:0 0 0 3px rgba(83,74,183,0.1)}
+button{font-family:inherit;cursor:pointer;border-radius:8px;font-size:13px;padding:8px 16px;border:1px solid #ddd;background:#fff;color:#1a1a18;transition:background 0.15s}
+button:hover{background:#f0eff8}
+button.primary{background:#534ab7;color:#fff;border-color:#534ab7}
+button.primary:hover{background:#3c3489;border-color:#3c3489}
+button.danger{background:#e24b4a;color:#fff;border-color:#e24b4a}
+button.danger:hover{background:#a32d2d}
+button.ghost{background:transparent;border-color:transparent;padding:6px 10px}
+button.ghost:hover{background:#f0eff8}
+button.sm{padding:5px 10px;font-size:12px}
+.card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;padding:1.25rem}
+.page{max-width:900px;margin:0 auto;padding:1.5rem 1.25rem}
+.nav{background:#fff;border-bottom:1px solid #e8e6e0;padding:0 1.25rem;display:flex;align-items:center;gap:2px;position:sticky;top:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.nav-brand{font-weight:700;font-size:15px;color:#1a1a18;padding:14px 12px 14px 0;margin-right:8px;letter-spacing:-0.3px}
+.nav-btn{padding:14px 14px;border:none;background:transparent;font-size:13px;color:#666;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;display:flex;align-items:center;gap:6px}
+.nav-btn:hover{color:#1a1a18;background:transparent}
+.nav-btn.active{color:#534ab7;border-bottom-color:#534ab7;font-weight:600}
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:0.2px}
+.badge-Douglas{background:#dbeafe;color:#1e40af}
+.badge-Stuart{background:#fee2e2;color:#991b1b}
+.badge-Gordon{background:#dcfce7;color:#166534}
+.badge-Forbes{background:#fef9c3;color:#854d0e}
+.badge-pending{background:#fef3c7;color:#92400e}
+.badge-done{background:#dcfce7;color:#166534}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:10px 12px;border-bottom:1px solid #e8e6e0;font-weight:600;color:#666;font-size:12px;text-transform:uppercase;letter-spacing:0.4px}
+td{padding:10px 12px;border-bottom:1px solid #f5f4f0}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:14px;padding:1.75rem;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.modal-header h3{font-size:17px;font-weight:600}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:12px;font-weight:600;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px}
+.flex{display:flex;gap:8px;align-items:center}
+.pill-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pill{padding:5px 12px;border-radius:20px;font-size:12px;background:#f5f4f0;color:#444;cursor:pointer;border:1px solid #e0dfd8;transition:all 0.1s;user-select:none}
+.pill:hover{border-color:#534ab7;color:#534ab7}
+.pill.selected{background:#534ab7;color:#fff;border-color:#534ab7}
+.empty{color:#aaa;font-size:13px;padding:2rem 0;text-align:center}
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+h1{font-size:24px;font-weight:700;letter-spacing:-0.5px}
+h2{font-size:18px;font-weight:600;margin-bottom:1rem}
+h3{font-size:16px;font-weight:600}
+.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:0.5rem}
+.admin-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;padding:1.5rem;cursor:pointer;transition:all 0.15s;text-decoration:none;display:block}
+.admin-card:hover{border-color:#534ab7;box-shadow:0 4px 12px rgba(83,74,183,0.1);transform:translateY(-1px)}
+.admin-card .icon{width:44px;height:44px;border-radius:10px;background:#eeecfb;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:22px}
+.admin-card h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.admin-card p{font-size:12px;color:#888;line-height:1.5}
+.lb-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #f5f4f0;gap:14px}
+.lb-row:last-child{border-bottom:none}
+.rank-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.rank-1{background:#fef3c7;color:#92400e}
+.rank-2{background:#f1f5f9;color:#475569}
+.rank-3{background:#fce7f3;color:#9d174d}
+.rank-n{background:#f5f4f0;color:#999}
+.bar-wrap{flex:1;background:#f5f4f0;border-radius:4px;height:8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:#534ab7;transition:width 0.5s ease}
+.points-chip{font-weight:700;color:#534ab7;min-width:60px;text-align:right;font-size:15px}
+.tab-bar{display:flex;gap:4px;margin-bottom:1.25rem;background:#f5f4f0;padding:4px;border-radius:10px;width:fit-content}
+.tab-btn{padding:6px 16px;border:none;background:transparent;border-radius:7px;font-size:13px;font-weight:500;color:#666;cursor:pointer}
+.tab-btn.active{background:#fff;color:#534ab7;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.yg-section{margin-bottom:2rem}
+.yg-title{font-size:15px;font-weight:700;color:#534ab7;margin-bottom:0.75rem;display:flex;align-items:center;gap:8px}
+.split-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.gender-card-title{padding:10px 14px;border-bottom:1px solid #f0efea;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.4px}
+.mini-lb-row{display:flex;align-items:center;padding:8px 14px;border-bottom:1px solid #f5f4f0;gap:10px;font-size:13px}
+.mini-lb-row:last-child{border-bottom:none}
+.saved-toast{font-size:13px;color:#166534;background:#dcfce7;padding:5px 12px;border-radius:6px;font-weight:500}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#666;margin-bottom:1.25rem;cursor:pointer;padding:6px 10px;border-radius:8px;border:none;background:transparent}
+.back-link:hover{color:#534ab7;background:#f0eff8}
+.pos-taken{color:#e24b4a !important}
+.info-text{font-size:13px;color:#888;line-height:1.6}
+.divider{border:none;border-top:1px solid #e8e6e0;margin:1.25rem 0}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useMemo, useCallback} = React;
+
+const CLANS = ['Douglas','Stuart','Gordon','Forbes'];
+const YEARGROUPS = ['P5','P6','P7','S1','S2','S3','Senior'];
+const POINTS_MAP = {1:8,2:7,3:6,4:5,5:4,6:3,7:2,8:1};
+
+const SEED_PUPILS = [
+  {id:1,name:'Alasteir de Courcey',clan:'Douglas',yeargroup:'P5',gender:'M'},
+  {id:2,name:'Alicia Askham',clan:'Stuart',yeargroup:'P5',gender:'F'},
+  {id:3,name:'Amery Beurich',clan:'Stuart',yeargroup:'P6',gender:'M'},
+  {id:4,name:'Anabal Bubeer',clan:'Forbes',yeargroup:'P7',gender:'M'},
+  {id:5,name:'Andriana Ruppert',clan:'Gordon',yeargroup:'P7',gender:'F'},
+  {id:6,name:'Angelle de Cullip',clan:'Gordon',yeargroup:'P5',gender:'F'},
+  {id:7,name:'Ardenia Halton',clan:'Stuart',yeargroup:'P5',gender:'F'},
+  {id:8,name:'Arri Peddel',clan:'Douglas',yeargroup:'P5',gender:'M'},
+];
+const SEED_RACES = [
+  {id:1,yeargroup:'P5',racename:'Boys 100m'},
+  {id:2,yeargroup:'P5',racename:'Girls 100m'},
+  {id:3,yeargroup:'P6',racename:'Boys 100m'},
+  {id:4,yeargroup:'P6',racename:'Girls 100m'},
+];
+const SEED_EVENTS = [
+  {id:1,race_id:1,year:2025,bestwinningscore:''},
+  {id:2,race_id:1,year:2026,bestwinningscore:''},
+  {id:3,race_id:2,year:2025,bestwinningscore:''},
+  {id:4,race_id:2,year:2026,bestwinningscore:''},
+  {id:5,race_id:3,year:2025,bestwinningscore:''},
+];
+const SEED_SCORESHEET = [
+  {event_id:2,pupil_id:1,position:8},
+  {event_id:2,pupil_id:2,position:7},
+  {event_id:2,pupil_id:3,position:6},
+  {event_id:2,pupil_id:4,position:5},
+  {event_id:2,pupil_id:5,position:4},
+  {event_id:2,pupil_id:6,position:3},
+  {event_id:2,pupil_id:7,position:2},
+  {event_id:2,pupil_id:8,position:1},
+];
+
+function loadLS(key, seed) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : seed; }
+  catch { return seed; }
+}
+function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+function useStore(key, seed) {
+  const [data, setData] = useState(() => loadLS(key, seed));
+  const set = useCallback(v => { setData(v); saveLS(key, v); }, [key]);
+  return [data, set];
+}
+
+function ClanBadge({clan}) {
+  return <span className={`badge badge-${clan}`}>{clan}</span>;
+}
+
+function Modal({title, onClose, children}) {
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3>{title}</h3>
+          <button className="ghost" onClick={onClose} style={{fontSize:18,lineHeight:1}}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── PUPILS ───────────────────────────────────────────────────────────────────
+function PupilsPage({pupils, setPupils, onBack}) {
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({name:'',clan:'Douglas',yeargroup:'P5',gender:'M'});
+  const [search, setSearch] = useState('');
+  const [filterYg, setFilterYg] = useState('');
+  const [filterClan, setFilterClan] = useState('');
+
+  function openAdd() { setForm({name:'',clan:'Douglas',yeargroup:'P5',gender:'M'}); setModal('add'); }
+  function openEdit(p) { setForm({...p}); setModal('edit'); }
+  function save() {
+    if (!form.name.trim()) return;
+    if (modal === 'add') setPupils([...pupils, {...form, id: Date.now(), name: form.name.trim()}]);
+    else setPupils(pupils.map(p => p.id === form.id ? {...form, name: form.name.trim()} : p));
+    setModal(null);
+  }
+  function del(id) { if (confirm('Delete this pupil? This will not remove their scoresheet entries.')) setPupils(pupils.filter(p => p.id !== id)); }
+  function f(field, val) { setForm(x => ({...x, [field]: val})); }
+
+  const filtered = pupils.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) &&
+    (!filterYg || p.yeargroup === filterYg) &&
+    (!filterClan || p.clan === filterClan)
+  );
+
+  return (
+    <div className="page">
+      <button className="back-link" onClick={onBack}>← Back to Admin</button>
+      <div className="section-hd">
+        <h1>Pupils <span style={{fontSize:14,fontWeight:400,color:'#999',marginLeft:8}}>{pupils.length} total</span></h1>
+        <button className="primary" onClick={openAdd}>+ Add pupil</button>
+      </div>
+      <div className="flex" style={{marginBottom:'1rem',flexWrap:'wrap'}}>
+        <input style={{maxWidth:260}} placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select style={{maxWidth:140}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
+          <option value="">All year groups</option>
+          {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+        </select>
+        <select style={{maxWidth:130}} value={filterClan} onChange={e=>setFilterClan(e.target.value)}>
+          <option value="">All clans</option>
+          {CLANS.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        {filtered.length === 0 ? <p className="empty">No pupils found</p> :
+        <table>
+          <thead><tr><th>Name</th><th>Year</th><th>Clan</th><th>Gender</th><th></th></tr></thead>
+          <tbody>{filtered.map(p => (
+            <tr key={p.id}>
+              <td style={{fontWeight:500}}>{p.name}</td>
+              <td>{p.yeargroup}</td>
+              <td><ClanBadge clan={p.clan}/></td>
+              <td>{p.gender === 'M' ? 'Boy' : 'Girl'}</td>
+              <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(p)}>Edit</button>
+                <button className="sm danger" onClick={()=>del(p.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>}
+      </div>
+
+      {modal && (
+        <Modal title={modal === 'add' ? 'Add pupil' : 'Edit pupil'} onClose={()=>setModal(null)}>
+          <div className="form-row"><label>Full name</label><input autoFocus value={form.name} onChange={e=>f('name',e.target.value)} placeholder="e.g. Jane Smith" onKeyDown={e=>e.key==='Enter'&&save()}/></div>
+          <div className="form-row"><label>Year group</label>
+            <select value={form.yeargroup} onChange={e=>f('yeargroup',e.target.value)}>
+              {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label>Clan</label>
+            <select value={form.clan} onChange={e=>f('clan',e.target.value)}>
+              {CLANS.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label>Gender</label>
+            <select value={form.gender} onChange={e=>f('gender',e.target.value)}>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+          </div>
+          <hr className="divider"/>
+          <div className="flex" style={{justifyContent:'flex-end',gap:8}}>
+            <button onClick={()=>setModal(null)}>Cancel</button>
+            <button className="primary" onClick={save}>Save pupil</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── RACES ────────────────────────────────────────────────────────────────────
+function RacesPage({races, setRaces, onBack}) {
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({racename:'',yeargroup:'P5'});
+
+  function openAdd() { setForm({racename:'',yeargroup:'P5'}); setModal('add'); }
+  function openEdit(r) { setForm({...r}); setModal('edit'); }
+  function save() {
+    if (!form.racename.trim()) return;
+    if (modal === 'add') setRaces([...races, {...form, id: Date.now(), racename: form.racename.trim()}]);
+    else setRaces(races.map(r => r.id === form.id ? {...form, racename: form.racename.trim()} : r));
+    setModal(null);
+  }
+  function del(id) { if (confirm('Delete this race? Events using it will still exist.')) setRaces(races.filter(r => r.id !== id)); }
+
+  return (
+    <div className="page">
+      <button className="back-link" onClick={onBack}>← Back to Admin</button>
+      <div className="section-hd">
+        <h1>Races <span style={{fontSize:14,fontWeight:400,color:'#999',marginLeft:8}}>{races.length} total</span></h1>
+        <button className="primary" onClick={openAdd}>+ Add race</button>
+      </div>
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        {races.length === 0 ? <p className="empty">No races yet</p> :
+        <table>
+          <thead><tr><th>Race name</th><th>Year group</th><th></th></tr></thead>
+          <tbody>{races.map(r => (
+            <tr key={r.id}>
+              <td style={{fontWeight:500}}>{r.racename}</td>
+              <td>{r.yeargroup}</td>
+              <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(r)}>Edit</button>
+                <button className="sm danger" onClick={()=>del(r.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>}
+      </div>
+
+      {modal && (
+        <Modal title={modal === 'add' ? 'Add race' : 'Edit race'} onClose={()=>setModal(null)}>
+          <div className="form-row"><label>Race name</label><input autoFocus value={form.racename} onChange={e=>setForm(x=>({...x,racename:e.target.value}))} placeholder="e.g. Boys 100m"/></div>
+          <div className="form-row"><label>Year group</label>
+            <select value={form.yeargroup} onChange={e=>setForm(x=>({...x,yeargroup:e.target.value}))}>
+              {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+            </select>
+          </div>
+          <hr className="divider"/>
+          <div className="flex" style={{justifyContent:'flex-end',gap:8}}>
+            <button onClick={()=>setModal(null)}>Cancel</button>
+            <button className="primary" onClick={save}>Save race</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── EVENTS ───────────────────────────────────────────────────────────────────
+function EventsPage({events, setEvents, races, pupils, scoresheet, setScoresheet, onBack}) {
+  const [modal, setModal] = useState(null); // 'add' | 'edit'
+  const [form, setForm] = useState({race_id:'', year: new Date().getFullYear()});
+  const [selected, setSelected] = useState([]);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [genderFilter, setGenderFilter] = useState('all');
+
+  const getRace = id => races.find(r => r.id === id) || {};
+
+  function getEligible(raceId) {
+    const race = getRace(Number(raceId));
+    if (!race.yeargroup) return [];
+    return pupils.filter(p => p.yeargroup === race.yeargroup);
+  }
+  function getEnrolledIds(eventId) {
+    return scoresheet.filter(s => s.event_id === eventId).map(s => s.pupil_id);
+  }
+  function hasResults(eventId) {
+    return scoresheet.some(s => s.event_id === eventId && s.position !== null);
+  }
+
+  function openAdd() {
+    setForm({race_id: races[0]?.id || '', year: new Date().getFullYear()});
+    setSelected([]);
+    setEditingEvent(null);
+    setGenderFilter('all');
+    setModal('add');
+  }
+  function openEdit(ev) {
+    setForm({race_id: ev.race_id, year: ev.year});
+    setSelected(getEnrolledIds(ev.id));
+    setEditingEvent(ev);
+    setGenderFilter('all');
+    setModal('edit');
+  }
+  function togglePupil(id) {
+    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  }
+  function selectAll() {
+    setSelected(getEligible(form.race_id).map(p => p.id));
+  }
+  function saveEvent() {
+    if (!form.race_id) return;
+    const id = Date.now();
+    setEvents([...events, {id, race_id: Number(form.race_id), year: Number(form.year), bestwinningscore:''}]);
+    setScoresheet([...scoresheet, ...selected.map(pid => ({event_id: id, pupil_id: pid, position: null}))]);
+    setModal(null);
+  }
+  function saveEditEvent() {
+    if (!editingEvent) return;
+    const eid = editingEvent.id;
+    // Update year on the event
+    setEvents(events.map(e => e.id === eid ? {...e, year: Number(form.year)} : e));
+    // Reconcile scoresheet: add new, remove deselected (only if no position set)
+    const currentIds = getEnrolledIds(eid);
+    const toAdd = selected.filter(id => !currentIds.includes(id));
+    const toRemove = currentIds.filter(id => !selected.includes(id));
+    let newSheet = scoresheet.filter(s => {
+      if (s.event_id !== eid) return true;
+      if (toRemove.includes(s.pupil_id) && !s.position) return false;
+      return true;
+    });
+    newSheet = [...newSheet, ...toAdd.map(pid => ({event_id: eid, pupil_id: pid, position: null}))];
+    setScoresheet(newSheet);
+    setModal(null);
+  }
+  function del(id) {
+    if (confirm('Delete this event and all its scoresheet entries?')) {
+      setEvents(events.filter(e => e.id !== id));
+      setScoresheet(scoresheet.filter(s => s.event_id !== id));
+    }
+  }
+
+  const eligible = getEligible(form.race_id);
+  const isEdit = modal === 'edit';
+
+  return (
+    <div className="page">
+      <button className="back-link" onClick={onBack}>← Back to Admin</button>
+      <div className="section-hd">
+        <h1>Events <span style={{fontSize:14,fontWeight:400,color:'#999',marginLeft:8}}>{events.length} total</span></h1>
+        <button className="primary" onClick={openAdd} disabled={races.length===0}>+ Add event</button>
+      </div>
+      {races.length === 0 && <div className="card" style={{marginBottom:'1rem',borderColor:'#fcd34d',background:'#fffbeb'}}><p className="info-text">You need to add at least one race before creating events.</p></div>}
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        {events.length === 0 ? <p className="empty">No events yet</p> :
+        <table>
+          <thead><tr><th>Race</th><th>Year group</th><th>Year</th><th>Pupils enrolled</th><th>Results</th><th></th></tr></thead>
+          <tbody>{events.map(ev => {
+            const race = getRace(ev.race_id);
+            const count = scoresheet.filter(s => s.event_id === ev.id).length;
+            const done = hasResults(ev.id);
+            return (
+              <tr key={ev.id}>
+                <td style={{fontWeight:500}}>{race.racename || '—'}</td>
+                <td>{race.yeargroup || '—'}</td>
+                <td>{ev.year}</td>
+                <td>{count}</td>
+                <td><span className={`badge ${done ? 'badge-done' : 'badge-pending'}`}>{done ? 'Entered' : 'Pending'}</span></td>
+                <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                  <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(ev)}>Edit</button>
+                  <button className="sm danger" onClick={()=>del(ev.id)}>Delete</button>
+                </td>
+              </tr>
+            );
+          })}</tbody>
+        </table>}
+      </div>
+
+      {modal && (
+        <Modal title={isEdit ? 'Edit event' : 'Create event'} onClose={()=>setModal(null)}>
+          <div className="form-row">
+            <label>Race</label>
+            {isEdit
+              ? <p style={{fontSize:14,fontWeight:500,padding:'6px 0'}}>{getRace(editingEvent.race_id).racename} ({getRace(editingEvent.race_id).yeargroup}) <span style={{fontSize:12,color:'#999',fontWeight:400}}>— race cannot be changed</span></p>
+              : <select value={form.race_id} onChange={e=>{ setForm(x=>({...x,race_id:e.target.value})); setSelected([]); }}>
+                  {races.map(r=><option key={r.id} value={r.id}>{r.racename} ({r.yeargroup})</option>)}
+                </select>
+            }
+          </div>
+          <div className="form-row">
+            <label>Year</label>
+            <input type="number" value={form.year} onChange={e=>setForm(x=>({...x,year:e.target.value}))} style={{maxWidth:120}}/>
+          </div>
+          {form.race_id && (
+            <div className="form-row">
+              <div className="flex" style={{justifyContent:'space-between',marginBottom:8}}>
+                <label style={{margin:0}}>Eligible pupils — tap to enrol</label>
+                <button className="sm ghost" style={{fontSize:11,padding:'2px 8px'}} onClick={selectAll}>Select all</button>
+              </div>
+              <div className="flex" style={{marginBottom:8,gap:6}}>
+                {['all','M','F'].map(g => (
+                  <button
+                    key={g}
+                    onClick={()=>setGenderFilter(g)}
+                    style={{
+                      padding:'4px 12px',fontSize:12,borderRadius:20,
+                      background: genderFilter===g ? '#534ab7' : '#f5f4f0',
+                      color: genderFilter===g ? '#fff' : '#555',
+                      border: genderFilter===g ? '1px solid #534ab7' : '1px solid #e0dfd8',
+                      fontWeight: genderFilter===g ? 600 : 400,
+                    }}
+                  >{g==='all'?'All':g==='M'?'Boys':'Girls'}</button>
+                ))}
+              </div>
+              {eligible.length === 0
+                ? <p style={{fontSize:13,color:'#999'}}>No pupils match this year group.</p>
+                : <div className="pill-grid">
+                    {eligible.filter(p => genderFilter==='all' || p.gender===genderFilter).map(p => {
+                      const hasPos = isEdit && scoresheet.some(s => s.event_id === editingEvent?.id && s.pupil_id === p.id && s.position);
+                      return (
+                        <span
+                          key={p.id}
+                          className={`pill${selected.includes(p.id) ? ' selected' : ''}`}
+                          onClick={()=>!hasPos && togglePupil(p.id)}
+                          title={hasPos ? 'Results already entered — cannot remove' : ''}
+                          style={hasPos ? {opacity:0.5,cursor:'not-allowed'} : {}}
+                        >
+                          {p.name} <span style={{opacity:0.6,fontSize:11}}>({p.gender === 'M' ? 'Boy' : 'Girl'})</span>
+                          {hasPos && <span style={{marginLeft:4,fontSize:10}}>✓</span>}
+                        </span>
+                      );
+                    })}
+                  </div>
+              }
+              <p style={{fontSize:12,color:'#999',marginTop:8}}>{selected.length} pupil{selected.length!==1?'s':''} selected{isEdit?' — pupils with results (✓) cannot be removed':''}</p>
+            </div>
+          )}
+          <hr className="divider"/>
+          <div className="flex" style={{justifyContent:'flex-end',gap:8}}>
+            <button onClick={()=>setModal(null)}>Cancel</button>
+            <button className="primary" onClick={isEdit ? saveEditEvent : saveEvent}>{isEdit ? 'Save changes' : 'Create event'}</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── RESULTS ──────────────────────────────────────────────────────────────────
+function ResultsPage({events, setEvents, races, pupils, scoresheet, setScoresheet}) {
+  const [activeId, setActiveId] = useState(null);
+  const [positions, setPositions] = useState({});
+  const [bws, setBws] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const getRace = id => races.find(r => r.id === id) || {};
+  const hasResults = eventId => scoresheet.some(s => s.event_id === eventId && s.position !== null);
+
+  const activeEvent = events.find(e => e.id === activeId);
+  const enrolled = activeEvent
+    ? scoresheet.filter(s => s.event_id === activeEvent.id).map(s => pupils.find(p => p.id === s.pupil_id)).filter(Boolean)
+    : [];
+
+  function openEvent(ev) {
+    setActiveId(ev.id);
+    setSaved(false);
+    setBws(ev.bestwinningscore || '');
+    const pos = {};
+    scoresheet.filter(s => s.event_id === ev.id).forEach(s => { if (s.position) pos[s.pupil_id] = s.position; });
+    setPositions(pos);
+  }
+
+  function setPos(pupilId, val) { setPositions(p => ({...p, [pupilId]: val})); setSaved(false); }
+
+  function saveResults() {
+    setScoresheet(scoresheet.map(s => {
+      if (s.event_id !== activeId) return s;
+      return {...s, position: positions[s.pupil_id] ? Number(positions[s.pupil_id]) : null};
+    }));
+    setEvents(events.map(e => e.id === activeId ? {...e, bestwinningscore: bws} : e));
+    setSaved(true);
+  }
+
+  const usedPositions = Object.entries(positions).map(([,v]) => Number(v)).filter(Boolean);
+  function isPosUsed(pupilId, pos) { return usedPositions.includes(Number(pos)) && Number(positions[pupilId]) !== Number(pos); }
+
+  const enteredCount = ev => scoresheet.filter(s => s.event_id === ev.id && s.position !== null).length;
+  const enrolledCount = ev => scoresheet.filter(s => s.event_id === ev.id).length;
+
+  return (
+    <div className="page">
+      <h1 style={{marginBottom:'0.25rem'}}>Results entry</h1>
+      <p className="info-text" style={{marginBottom:'1.5rem'}}>Select an event to enter or edit results. Completed events are shown in grey.</p>
+
+      {events.length === 0 && <p className="empty">No events set up yet.</p>}
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:'0.875rem',marginBottom:'1.5rem'}}>
+        {events.map(ev => {
+          const race = getRace(ev.race_id);
+          const done = hasResults(ev.id);
+          const isActive = activeId === ev.id;
+          const ec = enteredCount(ev);
+          const total = enrolledCount(ev);
+          return (
+            <div
+              key={ev.id}
+              onClick={() => openEvent(ev)}
+              style={{
+                background: done ? '#f5f4f0' : '#fff',
+                border: isActive ? '2px solid #534ab7' : '1px solid ' + (done ? '#ddd' : '#e8e6e0'),
+                borderRadius: 12,
+                padding: '1rem 1.125rem',
+                cursor: 'pointer',
+                opacity: done ? 0.75 : 1,
+                transition: 'all 0.15s',
+                position: 'relative',
+              }}
+            >
+              {done && (
+                <span style={{position:'absolute',top:10,right:10,fontSize:11,fontWeight:600,background:'#dcfce7',color:'#166534',padding:'2px 7px',borderRadius:5}}>
+                  ✓ Done
+                </span>
+              )}
+              <div style={{fontWeight:700,fontSize:14,marginBottom:3,color: done ? '#555' : '#1a1a18',paddingRight:done?50:0}}>{race.racename || '—'}</div>
+              <div style={{fontSize:12,color:'#888',marginBottom:8}}>{race.yeargroup} · {ev.year}</div>
+              <div style={{fontSize:12,color: done ? '#888' : '#534ab7',fontWeight:500}}>
+                {ec}/{total} positions entered
+              </div>
+              {ev.bestwinningscore && (
+                <div style={{fontSize:12,color:'#666',marginTop:4}}>
+                  🏆 {ev.bestwinningscore}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {activeEvent && (
+        <div style={{borderTop:'2px solid #534ab7',paddingTop:'1.5rem'}}>
+          <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:'1rem'}}>
+            <h2 style={{margin:0}}>{getRace(activeEvent.race_id).racename}</h2>
+            <span style={{fontSize:13,color:'#888'}}>{getRace(activeEvent.race_id).yeargroup} · {activeEvent.year}</span>
+            <button className="sm ghost" style={{marginLeft:'auto',fontSize:12,color:'#999'}} onClick={()=>setActiveId(null)}>✕ Close</button>
+          </div>
+
+          <div className="card" style={{marginBottom:'1rem'}}>
+            <div className="form-row" style={{margin:0}}>
+              <label>Best winning score / time / distance</label>
+              <input
+                value={bws}
+                onChange={e=>{ setBws(e.target.value); setSaved(false); }}
+                placeholder="e.g. 9.87s or 14.2m"
+                style={{maxWidth:280}}
+              />
+            </div>
+          </div>
+
+          <div className="card" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid #f0efea',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontWeight:600,fontSize:14}}>Finishing positions</span>
+              <span style={{fontSize:12,color:'#999'}}>{Object.values(positions).filter(Boolean).length} / {enrolled.length} entered</span>
+            </div>
+            {enrolled.length === 0
+              ? <p className="empty">No pupils enrolled.</p>
+              : <table>
+                  <thead><tr><th>Pupil</th><th>Year</th><th>Clan</th><th>Position</th><th>Points</th></tr></thead>
+                  <tbody>{enrolled.map(p => {
+                    const pos = positions[p.id] || '';
+                    const pts = pos ? POINTS_MAP[Number(pos)] : null;
+                    return (
+                      <tr key={p.id}>
+                        <td style={{fontWeight:500}}>{p.name}</td>
+                        <td>{p.yeargroup}</td>
+                        <td><ClanBadge clan={p.clan}/></td>
+                        <td style={{width:130}}>
+                          <select value={pos} onChange={e=>setPos(p.id,e.target.value)} style={{maxWidth:120}}>
+                            <option value="">—</option>
+                            {[1,2,3,4,5,6,7,8].map(n=>(
+                              <option key={n} value={n} disabled={isPosUsed(p.id,n)}>
+                                {n}{isPosUsed(p.id,n)?' (taken)':''}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{fontWeight:700,color: pts ? '#534ab7' : '#ccc',fontSize:15}}>
+                          {pts || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+            }
+          </div>
+
+          <div className="flex" style={{justifyContent:'flex-end',gap:12}}>
+            {saved && <span className="saved-toast">✓ Results saved</span>}
+            <button className="primary" onClick={saveResults}>Save results</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
+function LeaderboardPage({pupils, scoresheet}) {
+  const [tab, setTab] = useState('clans');
+
+  const individualPoints = useMemo(() => {
+    const totals = {};
+    scoresheet.forEach(s => {
+      if (!s.position) return;
+      totals[s.pupil_id] = (totals[s.pupil_id] || 0) + (POINTS_MAP[s.position] || 0);
+    });
+    return totals;
+  }, [scoresheet]);
+
+  const clanTotals = useMemo(() => {
+    const totals = {};
+    CLANS.forEach(c => totals[c] = 0);
+    Object.entries(individualPoints).forEach(([pid, pts]) => {
+      const p = pupils.find(x => x.id === Number(pid));
+      if (p) totals[p.clan] = (totals[p.clan] || 0) + pts;
+    });
+    return CLANS.map(c => ({clan: c, points: totals[c]})).sort((a,b) => b.points - a.points);
+  }, [individualPoints, pupils]);
+
+  const maxClan = Math.max(...clanTotals.map(c => c.points), 1);
+
+  const yearGroupData = useMemo(() => {
+    return YEARGROUPS.map(yg => {
+      const ygPupils = pupils.filter(p => p.yeargroup === yg);
+      const boys = ygPupils.filter(p=>p.gender==='M').map(p=>({...p,points:individualPoints[p.id]||0})).sort((a,b)=>b.points-a.points);
+      const girls = ygPupils.filter(p=>p.gender==='F').map(p=>({...p,points:individualPoints[p.id]||0})).sort((a,b)=>b.points-a.points);
+      return {yg, boys, girls, hasData: boys.some(b=>b.points>0)||girls.some(g=>g.points>0)};
+    });
+  }, [pupils, individualPoints]);
+
+  const clanColors = {Douglas:'#1e40af',Stuart:'#991b1b',Gordon:'#166534',Forbes:'#854d0e'};
+  const clanBg = {Douglas:'#dbeafe',Stuart:'#dcfce7',Gordon:'#fef9c3',Forbes:'#fce7f3'};
+
+  return (
+    <div className="page">
+      <h1 style={{marginBottom:'1.25rem'}}>Leaderboard</h1>
+      <div className="tab-bar">
+        <button className={`tab-btn${tab==='clans'?' active':''}`} onClick={()=>setTab('clans')}>Clan standings</button>
+        <button className={`tab-btn${tab==='individual'?' active':''}`} onClick={()=>setTab('individual')}>Individual</button>
+      </div>
+
+      {tab === 'clans' && (
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          {clanTotals.every(c=>c.points===0)
+            ? <p className="empty">No results entered yet.</p>
+            : clanTotals.map((c,i) => (
+              <div key={c.clan} className="lb-row">
+                <div className={`rank-circle rank-${i<3?i+1:'n'}`}>{i+1}</div>
+                <span style={{fontWeight:700,width:100,color:clanColors[c.clan]}}>{c.clan}</span>
+                <div className="bar-wrap">
+                  <div className="bar-fill" style={{width:`${(c.points/maxClan)*100}%`,background:clanColors[c.clan]}}/>
+                </div>
+                <span className="points-chip" style={{color:clanColors[c.clan]}}>{c.points} pts</span>
+              </div>
+            ))
+          }
+        </div>
+      )}
+
+      {tab === 'individual' && (
+        <div>
+          {yearGroupData.filter(d=>d.hasData).length === 0 && <p className="empty">No results entered yet.</p>}
+          {yearGroupData.map(({yg,boys,girls,hasData}) => {
+            if (!hasData) return null;
+            return (
+              <div key={yg} className="yg-section">
+                <div className="yg-title">{yg}</div>
+                <div className="split-grid">
+                  <div className="card" style={{padding:0,overflow:'hidden'}}>
+                    <div className="gender-card-title">Boys</div>
+                    {boys.filter(p=>p.points>0).length === 0
+                      ? <p className="empty" style={{padding:'0.75rem 1rem',fontSize:12}}>No results</p>
+                      : boys.filter(p=>p.points>0).map((p,i)=>(
+                          <div key={p.id} className="mini-lb-row">
+                            <div className={`rank-circle rank-${i<3?i+1:'n'}`} style={{width:24,height:24,fontSize:11,flexShrink:0}}>{i+1}</div>
+                            <span style={{flex:1,fontWeight:500}}>{p.name}</span>
+                            <ClanBadge clan={p.clan}/>
+                            <span style={{fontWeight:700,color:'#534ab7',marginLeft:8}}>{p.points}</span>
+                          </div>
+                        ))
+                    }
+                  </div>
+                  <div className="card" style={{padding:0,overflow:'hidden'}}>
+                    <div className="gender-card-title">Girls</div>
+                    {girls.filter(p=>p.points>0).length === 0
+                      ? <p className="empty" style={{padding:'0.75rem 1rem',fontSize:12}}>No results</p>
+                      : girls.filter(p=>p.points>0).map((p,i)=>(
+                          <div key={p.id} className="mini-lb-row">
+                            <div className={`rank-circle rank-${i<3?i+1:'n'}`} style={{width:24,height:24,fontSize:11,flexShrink:0}}>{i+1}</div>
+                            <span style={{flex:1,fontWeight:500}}>{p.name}</span>
+                            <ClanBadge clan={p.clan}/>
+                            <span style={{fontWeight:700,color:'#534ab7',marginLeft:8}}>{p.points}</span>
+                          </div>
+                        ))
+                    }
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ADMIN HUB ────────────────────────────────────────────────────────────────
+function AdminPage({setPage, pupils, races, events}) {
+  return (
+    <div className="page">
+      <h1 style={{marginBottom:6}}>Admin</h1>
+      <p className="info-text" style={{marginBottom:'1.5rem'}}>Set up your database before sports day. Use the <strong>Results</strong> and <strong>Leaderboard</strong> tabs on the day.</p>
+      <div className="admin-grid">
+        <div className="admin-card" onClick={()=>setPage('pupils')}>
+          <div className="icon">👤</div>
+          <h3>Pupils</h3>
+          <p>Add, edit and remove pupils. Set their clan, year group and gender.</p>
+          <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{pupils.length} pupils</p>
+        </div>
+        <div className="admin-card" onClick={()=>setPage('races')}>
+          <div className="icon">🏁</div>
+          <h3>Races</h3>
+          <p>Define race templates by name and year group.</p>
+          <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{races.length} races</p>
+        </div>
+        <div className="admin-card" onClick={()=>setPage('events')}>
+          <div className="icon">📋</div>
+          <h3>Events</h3>
+          <p>Create events, pick a year and enrol eligible pupils.</p>
+          <p style={{marginTop:8,fontWeight:600,color:'#534ab7',fontSize:13}}>{events.length} events</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── APP SHELL ────────────────────────────────────────────────────────────────
+function App() {
+  const [pupils, setPupils] = useStore('sd_pupils', SEED_PUPILS);
+  const [races, setRaces] = useStore('sd_races', SEED_RACES);
+  const [events, setEvents] = useStore('sd_events', SEED_EVENTS);
+  const [scoresheet, setScoresheet] = useStore('sd_scoresheet', SEED_SCORESHEET);
+  const [page, setPage] = useState('admin');
+
+  const isAdmin = ['admin','pupils','races','events'].includes(page);
+
+  return (
+    <>
+      <nav className="nav">
+        <span className="nav-brand">🏅 Sports Day</span>
+        <button className={`nav-btn${isAdmin?' active':''}`} onClick={()=>setPage('admin')}>Admin</button>
+        <button className={`nav-btn${page==='results'?' active':''}`} onClick={()=>setPage('results')}>Results</button>
+        <button className={`nav-btn${page==='leaderboard'?' active':''}`} onClick={()=>setPage('leaderboard')}>Leaderboard</button>
+      </nav>
+
+      {page === 'admin' && <AdminPage setPage={setPage} pupils={pupils} races={races} events={events}/>}
+      {page === 'pupils' && <PupilsPage pupils={pupils} setPupils={setPupils} onBack={()=>setPage('admin')}/>}
+      {page === 'races' && <RacesPage races={races} setRaces={setRaces} onBack={()=>setPage('admin')}/>}
+      {page === 'events' && <EventsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet} onBack={()=>setPage('admin')}/>}
+      {page === 'results' && <ResultsPage events={events} setEvents={setEvents} races={races} pupils={pupils} scoresheet={scoresheet} setScoresheet={setScoresheet}/>}
+      {page === 'leaderboard' && <LeaderboardPage pupils={pupils} scoresheet={scoresheet}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
