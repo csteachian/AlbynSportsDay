@@ -1167,44 +1167,69 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
 }
 
 // --- LEADERBOARD -------------------------------------------------------------
+const JUNIOR_YGS=['P5','P6','P7'];
+const SENIOR_YGS=['S1','S2','S3','Senior'];
+
 function LeaderboardPage({pupils,scoresheet,events}){
   const [tab,setTab]=useState('clans');
+  const [band,setBand]=useState('overall'); // 'overall'|'junior'|'senior'
 
   const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
   const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
 
-  // IDs of events in the selected year
-  const yearEventIds=useMemo(()=>new Set(events.filter(e=>e.year===Number(selectedYear)).map(e=>e.id)),[events,selectedYear]);
+  // Events in selected year, further filtered by band's year groups
+  const bandYgs=band==='junior'?JUNIOR_YGS:band==='senior'?SENIOR_YGS:YEARGROUPS;
+  const yearEventIds=useMemo(()=>{
+    const bandRaceIds=new Set(events.filter(e=>{
+      // find the race's yeargroup via the races prop — we only have events here,
+      // so we filter pupils by scoresheet instead at the points level
+      return e.year===Number(selectedYear);
+    }).map(e=>e.id));
+    return bandRaceIds;
+  },[events,selectedYear]);
 
-  // Scoresheet entries filtered to selected year's events only
-  const filteredScoresheet=useMemo(()=>scoresheet.filter(s=>yearEventIds.has(s.event_id)),[scoresheet,yearEventIds]);
+  // Scoresheet filtered to selected year
+  const yearScoresheet=useMemo(()=>scoresheet.filter(s=>yearEventIds.has(s.event_id)),[scoresheet,yearEventIds]);
 
+  // Individual points filtered by band (via pupil's yeargroup)
   const individualPoints=useMemo(()=>{
     const t={};
-    filteredScoresheet.forEach(s=>{if(!s.position)return;t[s.pupil_id]=(t[s.pupil_id]||0)+(POINTS_MAP[s.position]||0);});
+    yearScoresheet.forEach(s=>{
+      if(!s.position)return;
+      const p=pupils.find(x=>x.id===s.pupil_id);
+      if(!p)return;
+      if(!bandYgs.includes(p.yeargroup))return;
+      t[s.pupil_id]=(t[s.pupil_id]||0)+(POINTS_MAP[s.position]||0);
+    });
     return t;
-  },[filteredScoresheet]);
+  },[yearScoresheet,pupils,bandYgs]);
 
   const clanTotals=useMemo(()=>{
     const t={};CLANS.forEach(c=>t[c]=0);
-    Object.entries(individualPoints).forEach(([pid,pts])=>{const p=pupils.find(x=>x.id===Number(pid));if(p)t[p.clan]=(t[p.clan]||0)+pts;});
+    Object.entries(individualPoints).forEach(([pid,pts])=>{
+      const p=pupils.find(x=>x.id===Number(pid));
+      if(p)t[p.clan]=(t[p.clan]||0)+pts;
+    });
     return CLANS.map(c=>({clan:c,points:t[c]})).sort((a,b)=>b.points-a.points);
   },[individualPoints,pupils]);
 
   const maxClan=Math.max(...clanTotals.map(c=>c.points),1);
 
-  const yearGroupData=useMemo(()=>YEARGROUPS.map(yg=>{
+  const yearGroupData=useMemo(()=>bandYgs.map(yg=>{
     const yp=pupils.filter(p=>p.yeargroup===yg);
     const boys=yp.filter(p=>p.gender==='M').map(p=>({...p,points:individualPoints[p.id]||0})).sort((a,b)=>b.points-a.points);
     const girls=yp.filter(p=>p.gender==='F').map(p=>({...p,points:individualPoints[p.id]||0})).sort((a,b)=>b.points-a.points);
     return{yg,boys,girls,hasData:boys.some(b=>b.points>0)||girls.some(g=>g.points>0)};
-  }),[pupils,individualPoints]);
+  }),[pupils,individualPoints,bandYgs]);
+
+  const bandLabel=band==='junior'?'Junior (P5-P7)':band==='senior'?'Senior (S1-Senior)':'Overall';
+  const emptyMsg=`No results for ${bandLabel} in ${selectedYear} yet.`;
 
   return (
     <div className="page mobile-pad">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:10}}>
         <h1 style={{margin:0}}>Leaderboard</h1>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
           <span style={{fontSize:13,color:'#666',fontWeight:500}}>Year:</span>
           <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{width:'auto',minWidth:80}}>
             {availableYears.length>0
@@ -1214,6 +1239,17 @@ function LeaderboardPage({pupils,scoresheet,events}){
           </select>
         </div>
       </div>
+
+      {/* Band toggle */}
+      <div className="tab-bar" style={{marginBottom:'1rem'}}>
+        {['overall','junior','senior'].map(b=>(
+          <button key={b} className={`tab-btn${band===b?' active':''}`} onClick={()=>setBand(b)}>
+            {b==='overall'?'Overall':b==='junior'?'Junior':'Senior'}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab bar */}
       <div className="tab-bar">
         <button className={`tab-btn${tab==='clans'?' active':''}`} onClick={()=>setTab('clans')}>Clan standings</button>
         <button className={`tab-btn${tab==='individual'?' active':''}`} onClick={()=>setTab('individual')}>Individual</button>
@@ -1221,7 +1257,7 @@ function LeaderboardPage({pupils,scoresheet,events}){
 
       {tab==='clans'&&(
         <div className="card" style={{padding:0,overflow:'hidden'}}>
-          {clanTotals.every(c=>c.points===0)?<p className="empty">No results for {selectedYear} yet.</p>:
+          {clanTotals.every(c=>c.points===0)?<p className="empty">{emptyMsg}</p>:
           clanTotals.map((c,i)=>(
             <div key={c.clan} className="lb-row">
               <div className={`rank-circle rank-${i<3?i+1:'n'}`}>{i+1}</div>
@@ -1235,7 +1271,7 @@ function LeaderboardPage({pupils,scoresheet,events}){
 
       {tab==='individual'&&(
         <div>
-          {yearGroupData.filter(d=>d.hasData).length===0&&<p className="empty">No results for {selectedYear} yet.</p>}
+          {yearGroupData.filter(d=>d.hasData).length===0&&<p className="empty">{emptyMsg}</p>}
           {yearGroupData.map(({yg,boys,girls,hasData})=>{
             if(!hasData)return null;
             return(
