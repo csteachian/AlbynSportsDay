@@ -1576,6 +1576,8 @@ function LeaderboardPage({pupils,scoresheet,events,records,races}){
 }
 function AdminPage({setPage,pupils,races,events}){
   return (
+    <div className="page mobile-pad">
+      <h1 style={{marginBottom:6}}>Admin</h1>
       <p className="info-text" style={{marginBottom:'1.25rem'}}>Set up the database before sports day.</p>
       <div className="admin-grid">
         <div className="admin-card" onClick={()=>setPage('pupils')}>
