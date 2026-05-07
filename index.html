@@ -435,7 +435,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
     (!filterYg||p.yeargroup===filterYg)&&
     (!filterClan||p.clan===filterClan)&&
     (!filterYear||(p.dateAdded||'').slice(0,4)===filterYear)
-  );
+  ).sort((a,b)=>a.name.localeCompare(b.name));
 
   return (
     <div className="page mobile-pad">
