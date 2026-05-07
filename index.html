@@ -1553,8 +1553,8 @@ function App(){
       }));
       setEvents(prev=>prev.map(e=>e.id===eventId?{...e,bestwinningscore:bws}:e));
 
-      // Record checking: only if a bestwinningscore was entered
-      if(bws!==''&&bws!==null&&bws!==undefined){
+      // Record checking: only if a bestwinningscore was entered and is greater than zero
+      if(bws!==''&&bws!==null&&bws!==undefined&&parseFloat(bws)>0){
         const race=races.find(r=>r.id===ev.race_id);
         if(race){
           // Find pupil who finished 1st
