@@ -190,6 +190,10 @@ function isNewRecord(newVal,existingVal,racetype){
   if(isNaN(n)||isNaN(e))return false;
   return racetype==='field'?n>e:n<e;
 }
+function nextId(items){
+  if(!items||items.length===0)return 1;
+  return Math.max(...items.map(x=>Number(x.id)||0))+1;
+}
 
 const SEED_PUPILS = [
   {id:1,name:'Alasteir de Courcey',clan:'Douglas',yeargroup:'P5',gender:'M',dateAdded:'2025-01-01'},
@@ -369,7 +373,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
     if(!form.name.trim())return;
     setSaving(true);
     try{
-      if(modal==='add')await addPupil({...form,id:Date.now(),name:form.name.trim()});
+      if(modal==='add')await addPupil({...form,id:nextId(pupils),name:form.name.trim()});
       else await updatePupil({...form,name:form.name.trim()});
       setModal(null);
     }finally{setSaving(false);}
@@ -412,7 +416,8 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
         // Duplicate check: same name + same dateAdded date
         const isDupe=[...pupils,...newPupils].some(p=>p.name.toLowerCase()===name.toLowerCase()&&(p.dateAdded||'').slice(0,10)===today);
         if(isDupe){dupes++;return;}
-        newPupils.push({id:Date.now()+Math.floor(Math.random()*10000),name,gender,clan,yeargroup,dateAdded:today});
+        let baseId=nextId([...pupils,...newPupils]);
+        newPupils.push({id:baseId,name,gender,clan,yeargroup,dateAdded:today});
       });
       try{
         if(newPupils.length>0)await addPupils(newPupils);
@@ -580,7 +585,7 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
     if(!form.racename.trim())return;
     setSaving(true);
     try{
-      if(modal==='add')await addRace({...form,id:Date.now(),racename:form.racename.trim()});
+      if(modal==='add')await addRace({...form,id:nextId(races),racename:form.racename.trim()});
       else await updateRace({...form,racename:form.racename.trim()});
       setModal(null);
     }finally{setSaving(false);}
@@ -681,7 +686,7 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
     if(!form.race_id)return;
     setSaving(true);
     try{
-      const id=Date.now();
+      const id=nextId(events);
       const ev={id,race_id:Number(form.race_id),year:Number(form.year),bestwinningscore:''};
       const scores=selected.map(pid=>({event_id:id,pupil_id:pid,position:null}));
       await addEvent(ev,scores);
