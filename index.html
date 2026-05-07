@@ -165,6 +165,32 @@ const YEARGROUPS = ['P5','P6','P7','S1','S2','S3','Senior'];
 const POINTS_MAP = {1:8,2:7,3:6,4:5,5:4,6:3,7:2,8:1};
 const CLAN_COLORS = {Douglas:'#1e40af',Stuart:'#991b1b',Gordon:'#166534',Forbes:'#b8a800'};
 
+// --- SCORE FORMAT HELPERS ----------------------------------------------------
+// Track: stored as total seconds (e.g. 9.870). Display as M:SS:mmm
+// Field: stored as total centimetres (e.g. 1420). Display as Xm Ycm
+function formatScore(val,racetype){
+  const n=parseFloat(val);
+  if(isNaN(n)||val===''||val===null||val===undefined)return '-';
+  if(racetype==='field'){
+    const m=Math.floor(n/100);
+    const cm=Math.round(n%100);
+    return m+'m '+String(cm).padStart(2,'0')+'cm';
+  } else {
+    const mins=Math.floor(n/60);
+    const secs=Math.floor(n%60);
+    const ms=Math.round((n-Math.floor(n))*1000);
+    return mins+':'+String(secs).padStart(2,'0')+':'+String(ms).padStart(3,'0');
+  }
+}
+function trackToSeconds(mins,secs,ms){return Number(mins)*60+Number(secs)+Number(ms)/1000;}
+function fieldToCm(m,cm){return Number(m)*100+Number(cm);}
+function isNewRecord(newVal,existingVal,racetype){
+  if(existingVal===null||existingVal===undefined)return true;
+  const n=parseFloat(newVal),e=parseFloat(existingVal);
+  if(isNaN(n)||isNaN(e))return false;
+  return racetype==='field'?n>e:n<e;
+}
+
 const SEED_PUPILS = [
   {id:1,name:'Alasteir de Courcey',clan:'Douglas',yeargroup:'P5',gender:'M',dateAdded:'2025-01-01'},
   {id:2,name:'Alicia Askham',clan:'Stuart',yeargroup:'P5',gender:'F',dateAdded:'2025-01-01'},
@@ -206,23 +232,26 @@ const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 // --- DB HELPERS --------------------------------------------------------------
 // Supabase column names are lowercase; we map to camelCase used in the UI
 function rowToPupil(r){return{id:r.id,name:r.name,clan:r.clan,yeargroup:r.yeargroup,gender:r.gender,dateAdded:r.dateadded};}
-function rowToRace(r){return{id:r.id,racename:r.racename,yeargroup:r.yeargroup};}
-function rowToEvent(r){return{id:r.id,race_id:r.race_id,year:r.year,bestwinningscore:r.bestwinningscore||''};}
+function rowToRace(r){return{id:r.id,racename:r.racename,yeargroup:r.yeargroup,racetype:r.racetype||'track'};}
+function rowToEvent(r){return{id:r.id,race_id:r.race_id,year:r.year,bestwinningscore:r.bestwinningscore!==null&&r.bestwinningscore!==undefined?String(r.bestwinningscore):''};}
 function rowToScore(r){return{event_id:r.event_id,pupil_id:r.pupil_id,position:r.position};}
+function rowToRecord(r){return{id:r.id,r_id:r.r_id,recordYear:r.record_year,p_id:r.p_id,bestwinningscore:r.bestwinningscore};}
 
 const db={
   async loadAll(){
-    const [p,r,e,s]=await Promise.all([
+    const [p,r,e,s,rec]=await Promise.all([
       supabase.from('pupil').select('*'),
       supabase.from('race').select('*'),
       supabase.from('event').select('*'),
       supabase.from('scoresheet').select('*'),
+      supabase.from('records').select('*'),
     ]);
     return{
       pupils:(p.data||[]).map(rowToPupil),
       races:(r.data||[]).map(rowToRace),
       events:(e.data||[]).map(rowToEvent),
       scoresheet:(s.data||[]).map(rowToScore),
+      records:(rec.data||[]).map(rowToRecord),
     };
   },
   // PUPILS
@@ -245,11 +274,11 @@ const db={
   },
   // RACES
   async addRace(r){
-    const{data,error}=await supabase.from('race').insert({id:r.id,racename:r.racename,yeargroup:r.yeargroup}).select().single();
+    const{data,error}=await supabase.from('race').insert({id:r.id,racename:r.racename,yeargroup:r.yeargroup,racetype:r.racetype||'track'}).select().single();
     if(error)throw error;return rowToRace(data);
   },
   async updateRace(r){
-    const{error}=await supabase.from('race').update({racename:r.racename,yeargroup:r.yeargroup}).eq('id',r.id);
+    const{error}=await supabase.from('race').update({racename:r.racename,yeargroup:r.yeargroup,racetype:r.racetype||'track'}).eq('id',r.id);
     if(error)throw error;
   },
   async deleteRace(id){
@@ -258,11 +287,13 @@ const db={
   },
   // EVENTS
   async addEvent(e){
-    const{data,error}=await supabase.from('event').insert({id:e.id,race_id:e.race_id,year:e.year,bestwinningscore:e.bestwinningscore||''}).select().single();
+    const score=e.bestwinningscore!==''?Number(e.bestwinningscore):null;
+    const{data,error}=await supabase.from('event').insert({id:e.id,race_id:e.race_id,year:e.year,bestwinningscore:score}).select().single();
     if(error)throw error;return rowToEvent(data);
   },
   async updateEvent(e){
-    const{error}=await supabase.from('event').update({year:e.year,bestwinningscore:e.bestwinningscore||''}).eq('id',e.id);
+    const score=e.bestwinningscore!==''&&e.bestwinningscore!==null&&e.bestwinningscore!==undefined?Number(e.bestwinningscore):null;
+    const{error}=await supabase.from('event').update({year:e.year,bestwinningscore:score}).eq('id',e.id);
     if(error)throw error;
   },
   async deleteEvent(id){
@@ -280,10 +311,18 @@ const db={
     const{error}=await q;if(error)throw error;
   },
   async updateScores(eventId,positions){
-    // upsert all position entries for this event
     const rows=Object.entries(positions).map(([pid,pos])=>({event_id:eventId,pupil_id:Number(pid),position:pos?Number(pos):null}));
     const{error}=await supabase.from('scoresheet').upsert(rows,{onConflict:'event_id,pupil_id'});
     if(error)throw error;
+  },
+  // RECORDS
+  async addRecord(rec){
+    const{data,error}=await supabase.from('records').insert({r_id:rec.r_id,record_year:rec.recordYear,p_id:rec.p_id,bestwinningscore:rec.bestwinningscore}).select().single();
+    if(error)throw error;return rowToRecord(data);
+  },
+  async loadRecords(){
+    const{data,error}=await supabase.from('records').select('*');
+    if(error)throw error;return(data||[]).map(rowToRecord);
   },
 };
 function useMobile(){
@@ -532,10 +571,10 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
 // --- RACES -------------------------------------------------------------------
 function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
   const [modal,setModal]=useState(null);
-  const [form,setForm]=useState({racename:'',yeargroup:'P5'});
+  const [form,setForm]=useState({racename:'',yeargroup:'P5',racetype:'track'});
   const [saving,setSaving]=useState(false);
 
-  function openAdd(){setForm({racename:'',yeargroup:'P5'});setModal('add');}
+  function openAdd(){setForm({racename:'',yeargroup:'P5',racetype:'track'});setModal('add');}
   function openEdit(r){setForm({...r});setModal('edit');}
   async function save(){
     if(!form.racename.trim())return;
@@ -559,10 +598,12 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
       <div className="card desktop-table" style={{padding:0,overflow:'hidden'}}>
         {races.length===0?<p className="empty">No races yet</p>:
         <table>
-          <thead><tr><th>Race name</th><th>Year group</th><th></th></tr></thead>
+          <thead><tr><th>Race name</th><th>Year group</th><th>Type</th><th></th></tr></thead>
           <tbody>{races.map(r=>(
             <tr key={r.id}>
-              <td style={{fontWeight:500}}>{r.racename}</td><td>{r.yeargroup}</td>
+              <td style={{fontWeight:500}}>{r.racename}</td>
+              <td>{r.yeargroup}</td>
+              <td><span className={`badge ${r.racetype==='field'?'badge-Gordon':'badge-Douglas'}`}>{r.racetype||'track'}</span></td>
               <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
                 <button className="sm" style={{marginRight:4}} onClick={()=>openEdit(r)}>Edit</button>
                 <button className="sm danger" onClick={()=>del(r.id)}>Delete</button>
@@ -577,7 +618,10 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
         races.map(r=>(
           <div key={r.id} className="row-card">
             <div className="row-card-title">{r.racename}</div>
-            <div className="row-card-meta"><span>{r.yeargroup}</span></div>
+            <div className="row-card-meta">
+              <span>{r.yeargroup}</span>
+              <span className={`badge ${r.racetype==='field'?'badge-Gordon':'badge-Douglas'}`}>{r.racetype||'track'}</span>
+            </div>
             <div className="row-card-actions">
               <button className="sm" onClick={()=>openEdit(r)}>Edit</button>
               <button className="sm danger" onClick={()=>del(r.id)}>Delete</button>
@@ -591,6 +635,12 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
           <div className="form-row"><label>Race name</label><input autoFocus value={form.racename} onChange={e=>setForm(x=>({...x,racename:e.target.value}))} placeholder="e.g. Boys 100m"/></div>
           <div className="form-row"><label>Year group</label>
             <select value={form.yeargroup} onChange={e=>setForm(x=>({...x,yeargroup:e.target.value}))}>{YEARGROUPS.map(y=><option key={y}>{y}</option>)}</select>
+          </div>
+          <div className="form-row"><label>Race type</label>
+            <select value={form.racetype||'track'} onChange={e=>setForm(x=>({...x,racetype:e.target.value}))}>
+              <option value="track">Track (timed - lower is better)</option>
+              <option value="field">Field (distance - higher is better)</option>
+            </select>
           </div>
           <hr className="divider"/>
           <button className="primary" style={{width:'100%',padding:14,fontSize:16}} onClick={save} disabled={saving}>{saving?'Saving...':'Save race'}</button>
@@ -994,39 +1044,67 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
 function ResultsPage({events,races,pupils,scoresheet,saveResults}){
   const [activeId,setActiveId]=useState(null);
   const [positions,setPositions]=useState({});
-  const [bws,setBws]=useState('');
+  const [trackM,setTrackM]=useState('0');
+  const [trackS,setTrackS]=useState('');
+  const [trackMs,setTrackMs]=useState('');
+  const [fieldM,setFieldM]=useState('');
+  const [fieldCm,setFieldCm]=useState('0');
   const [saved,setSaved]=useState(false);
   const [saving,setSaving]=useState(false);
   const mob=useMobile();
 
-  const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
-  const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
-  const filteredEvents=useMemo(()=>events.filter(e=>e.year===Number(selectedYear)),[events,selectedYear]);
-
   const getRace=id=>races.find(r=>r.id===id)||{};
   const hasResults=eventId=>scoresheet.some(s=>s.event_id===eventId&&s.position!==null);
   const activeEvent=events.find(e=>e.id===activeId);
+  const activeRace=activeEvent?getRace(activeEvent.race_id):{};
+  const isField=activeRace.racetype==='field';
   const enrolled=activeEvent?scoresheet.filter(s=>s.event_id===activeEvent.id).map(s=>pupils.find(p=>p.id===s.pupil_id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name)):[];
 
   function openEvent(ev){
-    setActiveId(ev.id);setSaved(false);setBws(ev.bestwinningscore||'');
+    setActiveId(ev.id);setSaved(false);
+    const race=getRace(ev.race_id);
+    const stored=ev.bestwinningscore;
+    if(race.racetype==='field'){
+      const cm=stored!==''&&stored!==null&&stored!==undefined?parseFloat(stored):null;
+      setFieldM(cm!==null?String(Math.floor(cm/100)):'');
+      setFieldCm(cm!==null?String(Math.round(cm%100)):'0');
+    } else {
+      const secs=stored!==''&&stored!==null&&stored!==undefined?parseFloat(stored):null;
+      if(secs!==null){
+        setTrackM(String(Math.floor(secs/60)));
+        setTrackS(String(Math.floor(secs%60)));
+        setTrackMs(String(Math.round((secs-Math.floor(secs))*1000)));
+      } else { setTrackM('0');setTrackS('');setTrackMs(''); }
+    }
     const pos={};
     scoresheet.filter(s=>s.event_id===ev.id).forEach(s=>{if(s.position)pos[s.pupil_id]=s.position;});
     setPositions(pos);
   }
+
+  function getBwsValue(){
+    if(isField){
+      if(fieldM===''&&fieldCm==='0')return '';
+      return String(fieldToCm(fieldM||0,fieldCm||0));
+    } else {
+      if(trackS==='')return '';
+      return String(trackToSeconds(trackM||0,trackS||0,trackMs||0));
+    }
+  }
+
   function setPos(pupilId,val){setPositions(p=>({...p,[pupilId]:val}));setSaved(false);}
   async function handleSave(){
     setSaving(true);
-    try{
-      await saveResults(activeId,positions,bws);
-      setSaved(true);
-    }finally{setSaving(false);}
+    try{await saveResults(activeId,positions,getBwsValue());setSaved(true);}
+    finally{setSaving(false);}
   }
   const usedPositions=Object.entries(positions).map(([,v])=>Number(v)).filter(Boolean);
   function isPosUsed(pupilId,pos){return usedPositions.includes(Number(pos))&&Number(positions[pupilId])!==Number(pos);}
-
   const enteredCount=ev=>scoresheet.filter(s=>s.event_id===ev.id&&s.position!==null).length;
   const enrolledCount=ev=>scoresheet.filter(s=>s.event_id===ev.id).length;
+
+  const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
+  const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
+  const filteredEvents=useMemo(()=>events.filter(e=>e.year===Number(selectedYear)),[events,selectedYear]);
 
   return (
     <div className="page mobile-pad">
@@ -1050,6 +1128,8 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
           const race=getRace(ev.race_id);
           const done=hasResults(ev.id);
           const isActive=activeId===ev.id;
+          const stored=ev.bestwinningscore;
+          const displayScore=stored!==''&&stored!==null&&stored!==undefined?formatScore(stored,race.racetype):null;
           return(
             <div key={ev.id} onClick={()=>openEvent(ev)} style={{
               background:done?'#f5f4f0':'#fff',
@@ -1057,11 +1137,11 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
               borderRadius:12,padding:'0.875rem 1rem',cursor:'pointer',
               opacity:done?0.78:1,transition:'all 0.15s',position:'relative',
             }}>
-              {done&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:600,background:'#dcfce7',color:'#166534',padding:'2px 6px',borderRadius:4}}>? Done</span>}
+              {done&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:600,background:'#dcfce7',color:'#166534',padding:'2px 6px',borderRadius:4}}>{String.fromCodePoint(10003)} Done</span>}
               <div style={{fontWeight:700,fontSize:14,marginBottom:2,color:done?'#555':'#1a1a18',paddingRight:done?46:0}}>{race.racename||'-'}</div>
-              <div style={{fontSize:12,color:'#888',marginBottom:6}}>{race.yeargroup} . {ev.year}</div>
+              <div style={{fontSize:12,color:'#888',marginBottom:4}}>{race.yeargroup} · {ev.year} · <span style={{color:race.racetype==='field'?'#166534':'#1e40af'}}>{race.racetype||'track'}</span></div>
               <div style={{fontSize:12,color:done?'#888':'#534ab7',fontWeight:500}}>{enteredCount(ev)}/{enrolledCount(ev)} entered</div>
-              {ev.bestwinningscore&&<div style={{fontSize:12,color:'#666',marginTop:3}}>{String.fromCodePoint(127942)} {ev.bestwinningscore}</div>}
+              {displayScore&&<div style={{fontSize:12,color:'#666',marginTop:3}}>{String.fromCodePoint(127942)} {displayScore}</div>}
             </div>
           );
         })}
@@ -1071,8 +1151,8 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
         <div style={{borderTop:'2px solid #534ab7',paddingTop:'1.5rem'}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
             <div style={{flex:1,minWidth:0}}>
-              <h2 style={{margin:0,fontSize:18,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{getRace(activeEvent.race_id).racename}</h2>
-              <span style={{fontSize:13,color:'#888'}}>{getRace(activeEvent.race_id).yeargroup} . {activeEvent.year}</span>
+              <h2 style={{margin:0,fontSize:18,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{activeRace.racename}</h2>
+              <span style={{fontSize:13,color:'#888'}}>{activeRace.yeargroup} · {activeEvent.year} · <span style={{color:isField?'#166534':'#1e40af'}}>{activeRace.racetype||'track'}</span></span>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
               {saved&&<span className="saved-toast">{String.fromCodePoint(10003)} Saved</span>}
@@ -1083,12 +1163,41 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
 
           <div className="card" style={{marginBottom:'1rem'}}>
             <div className="form-row" style={{margin:0}}>
-              <label>Best winning score / time / distance</label>
-              <input value={bws} onChange={e=>{setBws(e.target.value);setSaved(false);}} placeholder="e.g. 9.87s or 14.2m"/>
+              <label>{isField?'Winning distance':'Winning time'}</label>
+              {isField?(
+                <div style={{display:'flex',gap:8,alignItems:'center',marginTop:4}}>
+                  <div style={{flex:1}}>
+                    <input type="number" min="0" value={fieldM} onChange={e=>{setFieldM(e.target.value);setSaved(false);}} placeholder="0" style={{textAlign:'center'}}/>
+                    <div style={{fontSize:11,color:'#999',textAlign:'center',marginTop:3}}>metres</div>
+                  </div>
+                  <div style={{fontSize:18,color:'#999',paddingBottom:16}}>.</div>
+                  <div style={{flex:1}}>
+                    <input type="number" min="0" max="99" value={fieldCm} onChange={e=>{setFieldCm(e.target.value);setSaved(false);}} placeholder="00" style={{textAlign:'center'}}/>
+                    <div style={{fontSize:11,color:'#999',textAlign:'center',marginTop:3}}>centimetres</div>
+                  </div>
+                </div>
+              ):(
+                <div style={{display:'flex',gap:8,alignItems:'center',marginTop:4}}>
+                  <div style={{flex:1}}>
+                    <input type="number" min="0" value={trackM} onChange={e=>{setTrackM(e.target.value);setSaved(false);}} placeholder="0" style={{textAlign:'center'}}/>
+                    <div style={{fontSize:11,color:'#999',textAlign:'center',marginTop:3}}>minutes</div>
+                  </div>
+                  <div style={{fontSize:18,color:'#999',paddingBottom:16}}>:</div>
+                  <div style={{flex:1}}>
+                    <input type="number" min="0" max="59" value={trackS} onChange={e=>{setTrackS(e.target.value);setSaved(false);}} placeholder="00" style={{textAlign:'center'}}/>
+                    <div style={{fontSize:11,color:'#999',textAlign:'center',marginTop:3}}>seconds</div>
+                  </div>
+                  <div style={{fontSize:18,color:'#999',paddingBottom:16}}>:</div>
+                  <div style={{flex:1}}>
+                    <input type="number" min="0" max="999" value={trackMs} onChange={e=>{setTrackMs(e.target.value);setSaved(false);}} placeholder="000" style={{textAlign:'center'}}/>
+                    <div style={{fontSize:11,color:'#999',textAlign:'center',marginTop:3}}>milliseconds</div>
+                  </div>
+                </div>
+              )}
+              {getBwsValue()!==''&&<div style={{fontSize:12,color:'#534ab7',marginTop:6,fontWeight:500}}>Stored as: {formatScore(getBwsValue(),activeRace.racetype)}</div>}
             </div>
           </div>
 
-          {/* Desktop results table */}
           <div className="card desktop-results-table" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
             <div style={{padding:'10px 16px',borderBottom:'1px solid #f0efea',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontWeight:600,fontSize:14}}>Finishing positions</span>
@@ -1118,7 +1227,6 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
             </table>}
           </div>
 
-          {/* Mobile results: pupil cards with big position buttons */}
           <div className="mobile-results" style={{marginBottom:'1rem'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <span style={{fontWeight:600,fontSize:15}}>Finishing positions</span>
@@ -1147,8 +1255,7 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
                       const taken=isPosUsed(p.id,n);
                       const sel=Number(pos)===n;
                       return(
-                        <div key={n}
-                          className={`pos-btn${sel?' selected':''}${taken&&!sel?' taken':''}`}
+                        <div key={n} className={`pos-btn${sel?' selected':''}${taken&&!sel?' taken':''}`}
                           onClick={()=>{if(!taken||sel)setPos(p.id,sel?'':String(n));}}
                         >{n}</div>
                       );
@@ -1158,21 +1265,20 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
               );
             })}
           </div>
-
-
         </div>
       )}
     </div>
   );
 }
 
+
 // --- LEADERBOARD -------------------------------------------------------------
 const JUNIOR_YGS=['P5','P6','P7'];
 const SENIOR_YGS=['S1','S2','S3','Senior'];
 
-function LeaderboardPage({pupils,scoresheet,events}){
+function LeaderboardPage({pupils,scoresheet,events,records,races}){
   const [tab,setTab]=useState('clans');
-  const [band,setBand]=useState('overall'); // 'overall'|'junior'|'senior'
+  const [band,setBand]=useState('overall');
 
   const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
   const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
@@ -1253,6 +1359,7 @@ function LeaderboardPage({pupils,scoresheet,events}){
       <div className="tab-bar">
         <button className={`tab-btn${tab==='clans'?' active':''}`} onClick={()=>setTab('clans')}>Clan standings</button>
         <button className={`tab-btn${tab==='individual'?' active':''}`} onClick={()=>setTab('individual')}>Individual</button>
+        <button className={`tab-btn${tab==='records'?' active':''}`} onClick={()=>setTab('records')}>Records</button>
       </div>
 
       {tab==='clans'&&(
@@ -1298,11 +1405,55 @@ function LeaderboardPage({pupils,scoresheet,events}){
           })}
         </div>
       )}
+      {tab==='records'&&(()=>{
+        // Records set in the selected year
+        const yearRecords=records.filter(r=>r.recordYear===Number(selectedYear));
+        // For each, find the previous record for the same race (most recent record before this year)
+        function getPrevRecord(raceId,beforeYear){
+          const prev=records.filter(r=>r.r_id===raceId&&r.recordYear<beforeYear).sort((a,b)=>b.recordYear-a.recordYear);
+          return prev[0]||null;
+        }
+        if(yearRecords.length===0)return <p className="empty">No records set in {selectedYear}.</p>;
+        return(
+          <div>
+            {yearRecords.map(rec=>{
+              const race=races.find(r=>r.id===rec.r_id)||{};
+              const pupil=pupils.find(p=>p.id===rec.p_id)||{};
+              const prev=getPrevRecord(rec.r_id,rec.recordYear);
+              const yearsStood=prev?rec.recordYear-prev.recordYear:null;
+              return(
+                <div key={rec.id} className="card" style={{marginBottom:'0.75rem',borderLeft:'4px solid #534ab7'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+                    <div>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                        <span style={{fontSize:16}}>{String.fromCodePoint(127942)}</span>
+                        <span style={{fontWeight:700,fontSize:15}}>{race.racename||'-'}</span>
+                        <span className={`badge ${race.racetype==='field'?'badge-Gordon':'badge-Douglas'}`}>{race.racetype||'track'}</span>
+                      </div>
+                      <div style={{fontSize:14,fontWeight:500,color:'#1a1a18',marginBottom:2}}>{pupil.name||'-'}</div>
+                      <div style={{fontSize:12,color:'#888'}}>{race.yeargroup} · {pupil.clan&&<ClanBadge clan={pupil.clan}/>}</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:22,fontWeight:800,color:'#534ab7'}}>{formatScore(rec.bestwinningscore,race.racetype)}</div>
+                      <div style={{fontSize:11,color:'#888',marginTop:2}}>
+                        {prev
+                          ?yearsStood===0
+                            ?'Broke same-year record ('+formatScore(prev.bestwinningscore,race.racetype)+')'
+                            :'Previous record stood '+yearsStood+' year'+(yearsStood!==1?'s':'')+' ('+formatScore(prev.bestwinningscore,race.racetype)+')'
+                          :'First ever record'
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
-
-// --- ADMIN HUB ---------------------------------------------------------------
 function AdminPage({setPage,pupils,races,events}){
   return (
     <div className="page mobile-pad">
@@ -1338,34 +1489,29 @@ function App(){
   const [races,setRaces]=useState([]);
   const [events,setEvents]=useState([]);
   const [scoresheet,setScoresheet]=useState([]);
+  const [records,setRecords]=useState([]);
   const [page,setPage]=useState('admin');
   const [loading,setLoading]=useState(true);
   const [dbError,setDbError]=useState(null);
 
-  // Load all data on mount
   useEffect(()=>{
     db.loadAll()
-      .then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);})
+      .then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);setRecords(d.records);})
       .catch(e=>setDbError(e.message||'Failed to connect to database.'))
       .finally(()=>setLoading(false));
   },[]);
 
   const isAdmin=['admin','pupils','races','events'].includes(page);
 
-  // --- Wrapped setters that sync to Supabase ---
-
-  // PUPILS
   async function addPupil(p){try{await db.addPupil(p);setPupils(prev=>[...prev,p]);}catch(e){alert('Error saving pupil: '+e.message);}}
   async function updatePupil(p){try{await db.updatePupil(p);setPupils(prev=>prev.map(x=>x.id===p.id?p:x));}catch(e){alert('Error updating pupil: '+e.message);}}
   async function deletePupil(id){try{await db.deletePupil(id);setPupils(prev=>prev.filter(x=>x.id!==id));}catch(e){alert('Error deleting pupil: '+e.message);}}
   async function addPupils(list){try{await db.addPupils(list);setPupils(prev=>[...prev,...list]);}catch(e){alert('Error bulk-inserting pupils: '+e.message);throw e;}}
 
-  // RACES
   async function addRace(r){try{await db.addRace(r);setRaces(prev=>[...prev,r]);}catch(e){alert('Error saving race: '+e.message);}}
   async function updateRace(r){try{await db.updateRace(r);setRaces(prev=>prev.map(x=>x.id===r.id?r:x));}catch(e){alert('Error updating race: '+e.message);}}
   async function deleteRace(id){try{await db.deleteRace(id);setRaces(prev=>prev.filter(x=>x.id!==id));}catch(e){alert('Error deleting race: '+e.message);}}
 
-  // EVENTS
   async function addEvent(ev,scores){
     try{
       await db.addEvent(ev);
@@ -1395,16 +1541,44 @@ function App(){
     }catch(e){alert('Error deleting event: '+e.message);}
   }
 
-  // RESULTS
+  // RESULTS — with record checking
   async function saveResults(eventId,positions,bws){
     try{
       await db.updateScores(eventId,positions);
-      await db.updateEvent({...events.find(e=>e.id===eventId),bestwinningscore:bws});
+      const ev=events.find(e=>e.id===eventId);
+      await db.updateEvent({...ev,bestwinningscore:bws});
       setScoresheet(prev=>prev.map(s=>{
         if(s.event_id!==eventId)return s;
         return{...s,position:positions[s.pupil_id]?Number(positions[s.pupil_id]):null};
       }));
       setEvents(prev=>prev.map(e=>e.id===eventId?{...e,bestwinningscore:bws}:e));
+
+      // Record checking: only if a bestwinningscore was entered
+      if(bws!==''&&bws!==null&&bws!==undefined){
+        const race=races.find(r=>r.id===ev.race_id);
+        if(race){
+          // Find pupil who finished 1st
+          const firstEntry=Object.entries(positions).find(([,pos])=>Number(pos)===1);
+          if(firstEntry){
+            const firstPupilId=Number(firstEntry[0]);
+            const newScore=parseFloat(bws);
+            // Find best existing record for this race
+            const raceRecords=records.filter(r=>r.r_id===race.id);
+            const bestExisting=raceRecords.length>0
+              ?raceRecords.reduce((best,r)=>{
+                  if(best===null)return r;
+                  return isNewRecord(r.bestwinningscore,best.bestwinningscore,race.racetype)?r:best;
+                },null)
+              :null;
+            const existingBest=bestExisting?parseFloat(bestExisting.bestwinningscore):null;
+            if(isNewRecord(newScore,existingBest,race.racetype)){
+              const newRec={r_id:race.id,recordYear:ev.year,p_id:firstPupilId,bestwinningscore:newScore};
+              const saved=await db.addRecord(newRec);
+              setRecords(prev=>[...prev,saved]);
+            }
+          }
+        }
+      }
     }catch(e){alert('Error saving results: '+e.message);}
   }
 
@@ -1428,7 +1602,7 @@ function App(){
       <h2 style={{color:'#991b1b'}}>Database connection failed</h2>
       <p style={{color:'#666',fontSize:14,maxWidth:400}}>{dbError}</p>
       <p style={{color:'#999',fontSize:12}}>Check your Supabase project is running and RLS is disabled on all tables.</p>
-      <button className="primary" onClick={()=>{setDbError(null);setLoading(true);db.loadAll().then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);}).catch(e=>setDbError(e.message)).finally(()=>setLoading(false));}}>Retry</button>
+      <button className="primary" onClick={()=>{setDbError(null);setLoading(true);db.loadAll().then(d=>{setPupils(d.pupils);setRaces(d.races);setEvents(d.events);setScoresheet(d.scoresheet);setRecords(d.records);}).catch(e=>setDbError(e.message)).finally(()=>setLoading(false));}}>Retry</button>
     </div>
   );
 
@@ -1455,7 +1629,7 @@ function App(){
       {page==='races'&&<RacesPage races={races} addRace={addRace} updateRace={updateRace} deleteRace={deleteRace} onBack={()=>setPage('admin')}/>}
       {page==='events'&&<EventsPage events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} races={races} pupils={pupils} scoresheet={scoresheet} onBack={()=>setPage('admin')}/>}
       {page==='results'&&<ResultsPage events={events} races={races} pupils={pupils} scoresheet={scoresheet} saveResults={saveResults}/>}
-      {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet} events={events}/>}
+      {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet} events={events} records={records} races={races}/>}
     </>
   );
 }
