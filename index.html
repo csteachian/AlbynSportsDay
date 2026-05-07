@@ -1043,7 +1043,7 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
             <label>Race</label>
             {isEdit
               ?<p style={{fontSize:14,fontWeight:500,padding:'4px 0'}}>{getRace(editingEvent.race_id).racename} ({getRace(editingEvent.race_id).yeargroup}) <span style={{fontSize:12,color:'#999',fontWeight:400}}>- cannot change</span></p>
-              :<select value={form.race_id} onChange={e=>{setForm(x=>({...x,race_id:e.target.value}));setSelected([]);}}>{races.map(r=><option key={r.id} value={r.id}>{r.racename} ({r.yeargroup})</option>)}</select>
+              :<select value={form.race_id} onChange={e=>{setForm(x=>({...x,race_id:e.target.value}));setSelected([]);}}>{[...races].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=><option key={r.id} value={r.id}>{r.racename} ({r.yeargroup})</option>)}</select>
             }
           </div>
           <div className="form-row">
