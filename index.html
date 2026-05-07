@@ -412,7 +412,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
         // Duplicate check: same name + same dateAdded date
         const isDupe=[...pupils,...newPupils].some(p=>p.name.toLowerCase()===name.toLowerCase()&&(p.dateAdded||'').slice(0,10)===today);
         if(isDupe){dupes++;return;}
-        newPupils.push({id:Date.now()+Math.random(),name,gender,clan,yeargroup,dateAdded:today});
+        newPupils.push({id:Date.now()+Math.floor(Math.random()*10000),name,gender,clan,yeargroup,dateAdded:today});
       });
       try{
         if(newPupils.length>0)await addPupils(newPupils);
