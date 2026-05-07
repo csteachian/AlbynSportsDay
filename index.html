@@ -604,7 +604,7 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
         {races.length===0?<p className="empty">No races yet</p>:
         <table>
           <thead><tr><th>Race name</th><th>Year group</th><th>Type</th><th></th></tr></thead>
-          <tbody>{races.map(r=>(
+          <tbody>{[...races].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=>(
             <tr key={r.id}>
               <td style={{fontWeight:500}}>{r.racename}</td>
               <td>{r.yeargroup}</td>
