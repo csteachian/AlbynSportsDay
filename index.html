@@ -704,6 +704,12 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
 
   async function saveEvent(){
     if(!form.race_id)return;
+    const duplicate=events.some(e=>e.race_id===Number(form.race_id)&&e.year===Number(form.year));
+    if(duplicate){
+      const race=getRace(Number(form.race_id));
+      alert(`An event for "${race.racename} (${race.yeargroup})" in ${form.year} already exists.`);
+      return;
+    }
     setSaving(true);
     try{
       const id=nextId(events);
