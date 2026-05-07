@@ -1412,7 +1412,6 @@ function LeaderboardPage({pupils,scoresheet,events,records,races}){
         <button className={`tab-btn${tab==='clans'?' active':''}`} onClick={()=>setTab('clans')}>Clan standings</button>
         <button className={`tab-btn${tab==='individual'?' active':''}`} onClick={()=>setTab('individual')}>Individual</button>
         <button className={`tab-btn${tab==='records'?' active':''}`} onClick={()=>setTab('records')}>Records</button>
-        <button className={`tab-btn${tab==='schoolrecords'?' active':''}`} onClick={()=>setTab('schoolrecords')}>School Records</button>
       </div>
 
       {tab==='clans'&&(
@@ -1504,76 +1503,76 @@ function LeaderboardPage({pupils,scoresheet,events,records,races}){
           </div>
         );
       })()}
-      {tab==='schoolrecords'&&(()=>{
-        // For each race, find the single best result ever recorded
-        const schoolRecords=races
-          .map(race=>{
-            const raceRecs=records.filter(r=>r.r_id===race.id);
-            if(raceRecs.length===0)return null;
-            const best=raceRecs.reduce((b,r)=>{
-              if(!b)return r;
-              return isNewRecord(r.bestwinningscore,b.bestwinningscore,race.racetype)?r:b;
-            },null);
-            return{race,record:best};
-          })
-          .filter(Boolean)
-          .sort((a,b)=>a.race.racename.localeCompare(b.race.racename));
-
-        if(schoolRecords.length===0)return <p className="empty">No school records have been set yet.</p>;
-
-        // Group by year group in YEARGROUPS order
-        const grouped=YEARGROUPS.map(yg=>({
-          yg,
-          items:schoolRecords.filter(x=>x.race.yeargroup===yg),
-        })).filter(g=>g.items.length>0);
-
-        return(
-          <div>
-            <p className="info-text" style={{marginBottom:'1.25rem'}}>Best result ever recorded for each race, across all years.</p>
-            {grouped.map(({yg,items})=>(
-              <div key={yg} className="yg-section">
-                <div className="yg-title">{yg}</div>
-                {items.map(({race,record})=>{
-                  const pupil=pupils.find(p=>p.id===record.p_id)||{};
-                  // Find when this record was first set (oldest record with same score)
-                  const allForRace=records.filter(r=>r.r_id===race.id).sort((a,b)=>a.recordYear-b.recordYear);
-                  const currentYear=new Date().getFullYear();
-                  const yearsStanding=currentYear-record.recordYear;
-                  return(
-                    <div key={race.id} className="card" style={{marginBottom:'0.75rem',borderLeft:'4px solid #534ab7'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
-                            <span style={{fontWeight:700,fontSize:15}}>{race.racename}</span>
-                            <span className={`badge ${race.racetype==='field'?'badge-Gordon':'badge-Douglas'}`}>{race.racetype||'track'}</span>
-                          </div>
-                          <div style={{fontSize:14,fontWeight:600,color:'#1a1a18',marginBottom:2}}>{pupil.name||'-'}</div>
-                          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-                            {pupil.clan&&<ClanBadge clan={pupil.clan}/>}
-                            <span style={{fontSize:12,color:'#888'}}>Set in {record.recordYear}</span>
-                            <span style={{fontSize:12,color:'#999'}}>
-                              {yearsStanding===0
-                                ?'(this year)'
-                                :'('+yearsStanding+' year'+(yearsStanding!==1?'s':'')+' ago)'}
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{textAlign:'right',flexShrink:0}}>
-                          <div style={{fontSize:26,fontWeight:800,color:'#534ab7',lineHeight:1}}>{formatScore(record.bestwinningscore,race.racetype)}</div>
-                          <div style={{fontSize:11,color:'#999',marginTop:4}}>{allForRace.length} record{allForRace.length!==1?'s':''} in history</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        );
-      })()}
     </div>
   );
 }
+
+// --- SCHOOL RECORDS PAGE -----------------------------------------------------
+function SchoolRecordsPage({pupils,records,races}){
+  const schoolRecords=useMemo(()=>races
+    .map(race=>{
+      const raceRecs=records.filter(r=>r.r_id===race.id);
+      if(raceRecs.length===0)return null;
+      const best=raceRecs.reduce((b,r)=>{
+        if(!b)return r;
+        return isNewRecord(r.bestwinningscore,b.bestwinningscore,race.racetype)?r:b;
+      },null);
+      return{race,record:best};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>a.race.racename.localeCompare(b.race.racename))
+  ,[races,records]);
+
+  const grouped=useMemo(()=>YEARGROUPS.map(yg=>({
+    yg,
+    items:schoolRecords.filter(x=>x.race.yeargroup===yg),
+  })).filter(g=>g.items.length>0),[schoolRecords]);
+
+  const currentYear=new Date().getFullYear();
+
+  return(
+    <div className="page mobile-pad">
+      <h1 style={{marginBottom:6}}>Albyn School Records</h1>
+      <p className="info-text" style={{marginBottom:'1.25rem'}}>Best result ever recorded for each race, across all years.</p>
+      {schoolRecords.length===0?<p className="empty">No school records have been set yet.</p>:
+      grouped.map(({yg,items})=>(
+        <div key={yg} className="yg-section">
+          <div className="yg-title">{yg}</div>
+          {items.map(({race,record})=>{
+            const pupil=pupils.find(p=>p.id===record.p_id)||{};
+            const allForRace=records.filter(r=>r.r_id===race.id);
+            const yearsStanding=currentYear-record.recordYear;
+            return(
+              <div key={race.id} className="card" style={{marginBottom:'0.75rem',borderLeft:'4px solid #534ab7'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                      <span style={{fontWeight:700,fontSize:15}}>{race.racename}</span>
+                      <span className={`badge ${race.racetype==='field'?'badge-Gordon':'badge-Douglas'}`}>{race.racetype||'track'}</span>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:600,color:'#1a1a18',marginBottom:2}}>{pupil.name||'-'}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                      {pupil.clan&&<ClanBadge clan={pupil.clan}/>}
+                      <span style={{fontSize:12,color:'#888'}}>Set in {record.recordYear}</span>
+                      <span style={{fontSize:12,color:'#999'}}>
+                        {yearsStanding===0?'(this year)':'('+yearsStanding+' year'+(yearsStanding!==1?'s':'')+' ago)'}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    <div style={{fontSize:26,fontWeight:800,color:'#534ab7',lineHeight:1}}>{formatScore(record.bestwinningscore,race.racetype)}</div>
+                    <div style={{fontSize:11,color:'#999',marginTop:4}}>{allForRace.length} record{allForRace.length!==1?'s':''} in history</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AdminPage({setPage,pupils,races,events}){
   return (
     <div className="page mobile-pad">
@@ -1706,6 +1705,7 @@ function App(){
     {id:'admin',label:'Admin',icon:String.fromCodePoint(9881)},
     {id:'results',label:'Results',icon:String.fromCodePoint(128203)},
     {id:'leaderboard',label:'Board',icon:String.fromCodePoint(127942)},
+    {id:'schoolrecords',label:'Records',icon:String.fromCodePoint(127941)},
   ];
 
   if(loading)return(
@@ -1733,6 +1733,7 @@ function App(){
         <button className={`top-nav-btn${isAdmin?' active':''}`} onClick={()=>setPage('admin')}>Admin</button>
         <button className={`top-nav-btn${page==='results'?' active':''}`} onClick={()=>setPage('results')}>Results</button>
         <button className={`top-nav-btn${page==='leaderboard'?' active':''}`} onClick={()=>setPage('leaderboard')}>Leaderboard</button>
+        <button className={`top-nav-btn${page==='schoolrecords'?' active':''}`} onClick={()=>setPage('schoolrecords')}>School Records</button>
       </nav>
       <div className="bottom-nav">
         <div className="bottom-nav-inner">
@@ -1750,6 +1751,7 @@ function App(){
       {page==='events'&&<EventsPage events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} races={races} pupils={pupils} scoresheet={scoresheet} onBack={()=>setPage('admin')}/>}
       {page==='results'&&<ResultsPage events={events} races={races} pupils={pupils} scoresheet={scoresheet} saveResults={saveResults}/>}
       {page==='leaderboard'&&<LeaderboardPage pupils={pupils} scoresheet={scoresheet} events={events} records={records} races={races}/>}
+      {page==='schoolrecords'&&<SchoolRecordsPage pupils={pupils} records={records} races={races}/>}
     </>
   );
 }
