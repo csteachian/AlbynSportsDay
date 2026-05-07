@@ -435,7 +435,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
     (!filterYg||p.yeargroup===filterYg)&&
     (!filterClan||p.clan===filterClan)&&
     (!filterYear||(p.dateAdded||'').slice(0,4)===filterYear)
-  ).sort((a,b)=>a.name.localeCompare(b.name));
+  );
 
   return (
     <div className="page mobile-pad">
@@ -578,6 +578,13 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({racename:'',yeargroup:'P5',racetype:'track'});
   const [saving,setSaving]=useState(false);
+  const [filterYg,setFilterYg]=useState('');
+  const [filterType,setFilterType]=useState('');
+
+  const filteredRaces=useMemo(()=>races.filter(r=>
+    (!filterYg||r.yeargroup===filterYg)&&
+    (!filterType||r.racetype===filterType)
+  ),[races,filterYg,filterType]);
 
   function openAdd(){setForm({racename:'',yeargroup:'P5',racetype:'track'});setModal('add');}
   function openEdit(r){setForm({...r});setModal('edit');}
@@ -600,11 +607,24 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
         <button className="primary" onClick={openAdd}>+ Add</button>
       </div>
 
+      <div style={{display:'flex',gap:8,marginBottom:'0.875rem',flexWrap:'wrap'}}>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
+          <option value="">All year groups</option>
+          {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+        </select>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterType} onChange={e=>setFilterType(e.target.value)}>
+          <option value="">All types</option>
+          <option value="track">Track</option>
+          <option value="field">Field</option>
+        </select>
+        <span style={{fontSize:12,color:'#999',alignSelf:'center'}}>{filteredRaces.length} of {races.length} shown</span>
+      </div>
+
       <div className="card desktop-table" style={{padding:0,overflow:'hidden'}}>
-        {races.length===0?<p className="empty">No races yet</p>:
+        {filteredRaces.length===0?<p className="empty">No races match these filters</p>:
         <table>
           <thead><tr><th>Race name</th><th>Year group</th><th>Type</th><th></th></tr></thead>
-          <tbody>{[...races].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=>(
+          <tbody>{filteredRaces.map(r=>(
             <tr key={r.id}>
               <td style={{fontWeight:500}}>{r.racename}</td>
               <td>{r.yeargroup}</td>
@@ -619,8 +639,8 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
       </div>
 
       <div className="mobile-rows">
-        {races.length===0?<p className="empty">No races yet</p>:
-        [...races].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=>(
+        {filteredRaces.length===0?<p className="empty">No races match these filters</p>:
+        filteredRaces.map(r=>(
           <div key={r.id} className="row-card">
             <div className="row-card-title">{r.racename}</div>
             <div className="row-card-meta">
@@ -830,6 +850,16 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
 
   const availableYears=[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a);
   const [printYear,setPrintYear]=useState(()=>availableYears[0]||new Date().getFullYear());
+  const [filterYg,setFilterYg]=useState('');
+  const [filterType,setFilterType]=useState('');
+  const [filterYear,setFilterYear]=useState('');
+
+  const filteredEvents=useMemo(()=>events.filter(ev=>{
+    const race=getRace(ev.race_id);
+    return(!filterYg||race.yeargroup===filterYg)&&
+           (!filterType||race.racetype===filterType)&&
+           (!filterYear||String(ev.year)===filterYear);
+  }),[events,races,filterYg,filterType,filterYear]);
 
   function printAllEvents(){
     const {jsPDF}=window.jspdf;
@@ -943,11 +973,28 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
       )}
       {races.length===0&&<div className="card" style={{marginBottom:'1rem',borderColor:'#fcd34d',background:'#fffbeb'}}><p className="info-text">Add a race first.</p></div>}
 
+      <div style={{display:'flex',gap:8,marginBottom:'0.875rem',flexWrap:'wrap'}}>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
+          <option value="">All year groups</option>
+          {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+        </select>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:120}} value={filterType} onChange={e=>setFilterType(e.target.value)}>
+          <option value="">All types</option>
+          <option value="track">Track</option>
+          <option value="field">Field</option>
+        </select>
+        <select style={{flex:'0 0 auto',width:'auto',minWidth:100}} value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
+          <option value="">All years</option>
+          {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <span style={{fontSize:12,color:'#999',alignSelf:'center'}}>{filteredEvents.length} of {events.length} shown</span>
+      </div>
+
       <div className="card desktop-table" style={{padding:0,overflow:'hidden'}}>
-        {events.length===0?<p className="empty">No events yet</p>:
+        {filteredEvents.length===0?<p className="empty">No events match these filters</p>:
         <table>
           <thead><tr><th>Race</th><th>Year group</th><th>Year</th><th>Pupils</th><th>Results</th><th></th></tr></thead>
-          <tbody>{[...events].sort((a,b)=>{const ra=races.find(r=>r.id===a.race_id)||{};const rb=races.find(r=>r.id===b.race_id)||{};return ra.racename.localeCompare(rb.racename)||a.year-b.year;}).map(ev=>{
+          <tbody>{filteredEvents.map(ev=>{
             const race=getRace(ev.race_id);
             const count=scoresheet.filter(s=>s.event_id===ev.id).length;
             const done=hasResults(ev.id);
@@ -966,8 +1013,8 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
       </div>
 
       <div className="mobile-rows">
-        {events.length===0?<p className="empty">No events yet</p>:
-        [...events].sort((a,b)=>{const ra=races.find(r=>r.id===a.race_id)||{};const rb=races.find(r=>r.id===b.race_id)||{};return ra.racename.localeCompare(rb.racename)||a.year-b.year;}).map(ev=>{
+        {filteredEvents.length===0?<p className="empty">No events match these filters</p>:
+        filteredEvents.map(ev=>{
           const race=getRace(ev.race_id);
           const count=scoresheet.filter(s=>s.event_id===ev.id).length;
           const done=hasResults(ev.id);
