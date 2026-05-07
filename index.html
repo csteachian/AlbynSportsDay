@@ -435,7 +435,7 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
     (!filterYg||p.yeargroup===filterYg)&&
     (!filterClan||p.clan===filterClan)&&
     (!filterYear||(p.dateAdded||'').slice(0,4)===filterYear)
-  );
+  ).sort((a,b)=>a.name.localeCompare(b.name));
 
   return (
     <div className="page mobile-pad">
@@ -624,7 +624,7 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
         {filteredRaces.length===0?<p className="empty">No races match these filters</p>:
         <table>
           <thead><tr><th>Race name</th><th>Year group</th><th>Type</th><th></th></tr></thead>
-          <tbody>{filteredRaces.map(r=>(
+          <tbody>{[...filteredRaces].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=>(
             <tr key={r.id}>
               <td style={{fontWeight:500}}>{r.racename}</td>
               <td>{r.yeargroup}</td>
@@ -640,7 +640,7 @@ function RacesPage({races,addRace,updateRace,deleteRace,onBack}){
 
       <div className="mobile-rows">
         {filteredRaces.length===0?<p className="empty">No races match these filters</p>:
-        filteredRaces.map(r=>(
+        [...filteredRaces].sort((a,b)=>a.racename.localeCompare(b.racename)).map(r=>(
           <div key={r.id} className="row-card">
             <div className="row-card-title">{r.racename}</div>
             <div className="row-card-meta">
@@ -994,7 +994,7 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
         {filteredEvents.length===0?<p className="empty">No events match these filters</p>:
         <table>
           <thead><tr><th>Race</th><th>Year group</th><th>Year</th><th>Pupils</th><th>Results</th><th></th></tr></thead>
-          <tbody>{filteredEvents.map(ev=>{
+          <tbody>{[...filteredEvents].sort((a,b)=>{const ra=races.find(r=>r.id===a.race_id)||{};const rb=races.find(r=>r.id===b.race_id)||{};return ra.racename.localeCompare(rb.racename)||a.year-b.year;}).map(ev=>{
             const race=getRace(ev.race_id);
             const count=scoresheet.filter(s=>s.event_id===ev.id).length;
             const done=hasResults(ev.id);
@@ -1014,7 +1014,7 @@ function EventsPage({events,addEvent,updateEvent,deleteEvent,races,pupils,scores
 
       <div className="mobile-rows">
         {filteredEvents.length===0?<p className="empty">No events match these filters</p>:
-        filteredEvents.map(ev=>{
+        [...filteredEvents].sort((a,b)=>{const ra=races.find(r=>r.id===a.race_id)||{};const rb=races.find(r=>r.id===b.race_id)||{};return ra.racename.localeCompare(rb.racename)||a.year-b.year;}).map(ev=>{
           const race=getRace(ev.race_id);
           const count=scoresheet.filter(s=>s.event_id===ev.id).length;
           const done=hasResults(ev.id);
