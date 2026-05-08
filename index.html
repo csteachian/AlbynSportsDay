@@ -182,7 +182,10 @@ function formatScore(val,racetype){
     return mins+':'+String(secs).padStart(2,'0')+':'+String(ms).padStart(3,'0');
   }
 }
-function trackToSeconds(mins,secs,ms){return Number(mins)*60+Number(secs)+Number(ms)/1000;}
+function trackToSeconds(mins,secs,ms){
+  const msPadded=String(ms||0).padEnd(3,'0');
+  return Number(mins)*60+Number(secs)+Number(msPadded)/1000;
+}
 function fieldToCm(m,cm){return Number(m)*100+Number(cm);}
 function isNewRecord(newVal,existingVal,racetype){
   if(existingVal===null||existingVal===undefined)return true;
