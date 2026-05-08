@@ -1518,6 +1518,8 @@ function LeaderboardPage({pupils,scoresheet,events,records,races}){
 
 // --- SCHOOL RECORDS PAGE -----------------------------------------------------
 function SchoolRecordsPage({pupils,records,races}){
+const [filterYg,setFilterYg]=useState('');
+const [filterGender,setFilterGender]=useState('');
   const schoolRecords=useMemo(()=>races
     .map(race=>{
       const raceRecs=records.filter(r=>r.r_id===race.id);
@@ -1532,10 +1534,15 @@ function SchoolRecordsPage({pupils,records,races}){
     .sort((a,b)=>a.race.racename.localeCompare(b.race.racename))
   ,[races,records]);
 
-  const grouped=useMemo(()=>YEARGROUPS.map(yg=>({
+const grouped=useMemo(()=>YEARGROUPS
+  .filter(yg=>!filterYg||yg===filterYg)
+  .map(yg=>({
     yg,
-    items:schoolRecords.filter(x=>x.race.yeargroup===yg),
-  })).filter(g=>g.items.length>0),[schoolRecords]);
+    items:schoolRecords.filter(x=>{
+  const pupil=pupils.find(p=>p.id===x.record.p_id);
+  return x.race.yeargroup===yg&&(!filterGender||(pupil&&pupil.gender===filterGender));
+}),
+  })).filter(g=>g.items.length>0),[schoolRecords,filterYg,filterGender]);
 
   const currentYear=new Date().getFullYear();
 
@@ -1543,6 +1550,17 @@ function SchoolRecordsPage({pupils,records,races}){
     <div className="page mobile-pad">
       <h1 style={{marginBottom:6}}>Albyn School Records</h1>
       <p className="info-text" style={{marginBottom:'1.25rem'}}>Best result ever recorded for each race, across all years.</p>
+      <div style={{display:'flex',gap:8,marginBottom:'1.25rem',flexWrap:'wrap'}}>
+  <select style={{flex:'0 0 auto',width:'auto',minWidth:130}} value={filterYg} onChange={e=>setFilterYg(e.target.value)}>
+    <option value="">All year groups</option>
+    {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+  </select>
+  <select style={{flex:'0 0 auto',width:'auto',minWidth:110}} value={filterGender} onChange={e=>setFilterGender(e.target.value)}>
+    <option value="">All genders</option>
+    <option value="M">Boys</option>
+    <option value="F">Girls</option>
+  </select>
+</div>
       {schoolRecords.length===0?<p className="empty">No school records have been set yet.</p>:
       grouped.map(({yg,items})=>(
         <div key={yg} className="yg-section">
