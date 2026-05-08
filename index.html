@@ -450,6 +450,14 @@ function PupilsPage({pupils,addPupil,updatePupil,deletePupil,addPupils,onBack}){
             <span className="primary" style={{display:'inline-block',padding:'8px 14px',borderRadius:10,background:'#534ab7',color:'#fff',fontSize:13,cursor:'pointer',border:'1px solid #534ab7',fontFamily:'inherit',fontWeight:400}}>Upload CSV</span>
             <input type="file" accept=".csv" style={{display:'none'}} onChange={handleCSV}/>
           </label>
+          <button onClick={()=>{
+    const content='name,gender,clan,yeargroup\nJane Smith,F,Douglas,P5\n';
+    const blob=new Blob([content],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='pupils_template.csv';
+    a.click();URL.revokeObjectURL(url);
+  }}>Download template</button>
           <button className="primary" onClick={openAdd}>+ Add</button>
         </div>
       </div>
