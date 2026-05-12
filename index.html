@@ -1173,21 +1173,37 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
 
   const availableYears=useMemo(()=>[...new Set(events.map(e=>e.year))].sort((a,b)=>b-a),[events]);
   const [selectedYear,setSelectedYear]=useState(()=>availableYears[0]||new Date().getFullYear());
-  const filteredEvents=useMemo(()=>events.filter(e=>e.year===Number(selectedYear)),[events,selectedYear]);
+  const [filterYg,setFilterYg]=useState('');
+  const [filterType,setFilterType]=useState('');
+  const filteredEvents=useMemo(()=>events.filter(e=>{
+  const race=getRace(e.race_id);
+  return e.year===Number(selectedYear)&&
+    (!filterYg||race.yeargroup===filterYg)&&
+    (!filterType||race.racetype===filterType);
+}),[events,selectedYear,filterYg,filterType]);
 
   return (
     <div className="page mobile-pad">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'0.25rem',flexWrap:'wrap',gap:10}}>
         <h1 style={{margin:0}}>Results</h1>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <span style={{fontSize:13,color:'#666',fontWeight:500}}>Year:</span>
-          <select value={selectedYear} onChange={e=>{setSelectedYear(e.target.value);setActiveId(null);}} style={{width:'auto',minWidth:80}}>
-            {availableYears.length>0
-              ?availableYears.map(y=><option key={y} value={y}>{y}</option>)
-              :<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
-            }
-          </select>
-        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+  <span style={{fontSize:13,color:'#666',fontWeight:500}}>Year:</span>
+  <select value={selectedYear} onChange={e=>{setSelectedYear(e.target.value);setActiveId(null);}} style={{width:'auto',minWidth:80}}>
+    {availableYears.length>0
+      ?availableYears.map(y=><option key={y} value={y}>{y}</option>)
+      :<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+    }
+  </select>
+  <select style={{width:'auto',minWidth:130}} value={filterYg} onChange={e=>{setFilterYg(e.target.value);setActiveId(null);}}>
+    <option value="">All year groups</option>
+    {YEARGROUPS.map(y=><option key={y}>{y}</option>)}
+  </select>
+  <select style={{width:'auto',minWidth:110}} value={filterType} onChange={e=>{setFilterType(e.target.value);setActiveId(null);}}>
+    <option value="">All types</option>
+    <option value="track">Track</option>
+    <option value="field">Field</option>
+  </select>
+</div>
       </div>
       <p className="info-text" style={{marginBottom:'1.25rem'}}>Tap an event to enter or edit results.</p>
       {filteredEvents.length===0&&<p className="empty">No events for {selectedYear}.</p>}
