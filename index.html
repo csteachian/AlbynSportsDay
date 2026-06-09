@@ -1166,8 +1166,8 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
     try{await saveResults(activeId,positions,getBwsValue());setSaved(true);}
     finally{setSaving(false);}
   }
-  const usedPositions=Object.entries(positions).map(([,v])=>Number(v)).filter(Boolean);
-  function isPosUsed(pupilId,pos){return usedPositions.includes(Number(pos))&&Number(positions[pupilId])!==Number(pos);}
+  //const usedPositions=Object.entries(positions).map(([,v])=>Number(v)).filter(Boolean);
+  //function isPosUsed(pupilId,pos){return usedPositions.includes(Number(pos))&&Number(positions[pupilId])!==Number(pos);}
   const enteredCount=ev=>scoresheet.filter(s=>s.event_id===ev.id&&s.position!==null).length;
   const enrolledCount=ev=>scoresheet.filter(s=>s.event_id===ev.id).length;
 
@@ -1302,7 +1302,7 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
                     <select value={pos} onChange={e=>setPos(p.id,e.target.value)} style={{maxWidth:120}}>
                       <option value="">-</option>
                       {[1,2,3,4,5,6,7,8].map(n=>(
-                        <option key={n} value={n} disabled={isPosUsed(p.id,n)}>{n}{isPosUsed(p.id,n)?' (taken)':''}</option>
+                          <option key={n} value={n}>{n}</option>
                       ))}
                     </select>
                   </td>
@@ -1337,11 +1337,14 @@ function ResultsPage({events,races,pupils,scoresheet,saveResults}){
                   </div>
                   <div className="pos-grid">
                     {[1,2,3,4,5,6,7,8].map(n=>{
-                      const taken=isPosUsed(p.id,n);
+                      //const taken=isPosUsed(p.id,n);
                       const sel=Number(pos)===n;
                       return(
-                        <div key={n} className={`pos-btn${sel?' selected':''}${taken&&!sel?' taken':''}`}
-                          onClick={()=>{if(!taken||sel)setPos(p.id,sel?'':String(n));}}
+                        <div key={n} className={`pos-btn${sel?' selected':''}`
+                          //pos-btn${sel?' selected':''}${taken&&!sel?' taken':''}`
+                        }
+                          onClick={()=>setPos(p.id,sel?'':String(n))}
+                          //onClick={()=>{if(!taken||sel)setPos(p.id,sel?'':String(n));}}
                         >{n}</div>
                       );
                     })}
