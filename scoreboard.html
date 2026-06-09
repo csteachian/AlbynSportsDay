@@ -1,48 +1,3 @@
-
-Claude finished the response
-
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Sports Day</title> <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script> <script src="https://unpkg.com/react-dom@18/umd/react-
-
-pasted
-
-Hi Claude. Can you create a single page scoreboard HTML to show the clan results based on this file?
-
-9:27 AM
-Now let me build the scoreboard. I'll pull the clan colors and logic from the source file and connect it to Supabase for live data.
-
-
-
-Here's the live clan scoreboard pulling directly from your Supabase database. It:
-
-Shows all four clans ranked by total points with animated progress bars and medal indicators
-Defaults to the most recent year, with year-switcher buttons if you have data across multiple years
-Has a refresh button to reload live data at any time
-Since your seed data only has a few results entered (for event ID 2), you'll see some scores already. As you enter more results through the main app, hitting refresh here will update instantly.
-
-Show me the code
-
-9:30 AM
-
-Ran a command, read a file
-Ran a command, read a file
-Here's the standalone HTML file. It's self-contained — just open it in any browser and it'll connect to your Supabase database directly. The key parts:
-
-Supabase queries — fetches pupil, scoresheet, and event tables in parallel
-Points calculation — filters scores to the selected year's events, maps positions to points (1st=8pts … 8th=1pt), and sums by clan
-fetchAndRender(year) — the single function that handles both initial load and year/refresh button clicks; passing no argument defaults to the most recent year
-
-Clan scoreboard
-Code · HTML 
-
-
-
-
-
-Claude is AI and can make mistakes. Please double-check responses.
-
-
-raw
-Clan scoreboard · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,7 +16,7 @@ Clan scoreboard · HTML
 </style>
 </head>
 <body>
- 
+
 <div class="card">
   <h2 style="font-size:22px;font-weight:500;margin-bottom:4px;">Clan Scoreboard</h2>
   <div id="root">
@@ -71,40 +26,40 @@ Clan scoreboard · HTML
     </div>
   </div>
 </div>
- 
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const SUPABASE_URL = 'https://rnyvltcsksmdpdmyzuvu.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueXZsdGNza3NtZHBkbXl6dXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNzA1NTAsImV4cCI6MjA5MzY0NjU1MH0.5p8svtn2EqILvRp9CaCsKB64IS0CJzQnUSVAc2o-ZCk';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
- 
+
 const CLANS = ['Douglas', 'Stuart', 'Gordon', 'Forbes'];
 const POINTS_MAP = { 1:8, 2:7, 3:6, 4:5, 5:4, 6:3, 7:2, 8:1 };
 const MEDALS = ['🥇','🥈','🥉',''];
- 
+
 const CLAN_CONFIG = {
   Douglas: { bar:'#3b82f6', light:'#dbeafe', text:'#1e3a8a', badge:'#bfdbfe' },
   Stuart:  { bar:'#ef4444', light:'#fee2e2', text:'#7f1d1d', badge:'#fecaca' },
   Gordon:  { bar:'#22c55e', light:'#dcfce7', text:'#14532d', badge:'#bbf7d0' },
   Forbes:  { bar:'#eab308', light:'#fef9c3', text:'#78350f', badge:'#fef08a' },
 };
- 
+
 async function fetchAndRender(year) {
   const root = document.getElementById('root');
   root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;height:200px;">
     <div class="spin" style="width:28px;height:28px;border:3px solid #e8e6e0;border-top-color:#534AB7;border-radius:50%;"></div>
   </div>`;
- 
+
   const [{ data: pupils }, { data: scores }, { data: events }] = await Promise.all([
     sb.from('pupil').select('id,clan'),
     sb.from('scoresheet').select('pupil_id,position,event_id'),
     sb.from('event').select('id,year'),
   ]);
- 
+
   const years = [...new Set(events.map(e => e.year))].sort((a, b) => b - a);
   const activeYear = year ?? years[0];
   const eventIds = new Set(events.filter(e => e.year === activeYear).map(e => e.id));
- 
+
   const totals = {};
   CLANS.forEach(c => totals[c] = 0);
   (scores || []).forEach(s => {
@@ -112,12 +67,12 @@ async function fetchAndRender(year) {
     const pupil = (pupils || []).find(p => p.id === s.pupil_id);
     if (pupil) totals[pupil.clan] = (totals[pupil.clan] || 0) + (POINTS_MAP[s.position] || 0);
   });
- 
+
   const ranked = CLANS.map(c => ({ clan: c, points: totals[c] }))
     .sort((a, b) => b.points - a.points);
   const max = Math.max(...ranked.map(r => r.points), 1);
   const resultCount = (scores || []).filter(s => eventIds.has(s.event_id) && s.position).length;
- 
+
   // Year buttons
   const yearBtns = years.map(y => `
     <button onclick="fetchAndRender(${y})"
@@ -127,7 +82,7 @@ async function fetchAndRender(year) {
              color:${y === activeYear ? '#fff' : '#666'};">
       ${y}
     </button>`).join('');
- 
+
   // Clan rows
   const rows = ranked.map((r, i) => {
     const cfg = CLAN_CONFIG[r.clan];
@@ -152,7 +107,7 @@ async function fetchAndRender(year) {
         </div>
       </div>`;
   }).join('');
- 
+
   root.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px;">
       <p style="font-size:13px;color:#888;">Sports Day · ${activeYear}</p>
@@ -170,7 +125,7 @@ async function fetchAndRender(year) {
     <p style="font-size:12px;color:#aaa;margin-top:1rem;text-align:right;">${resultCount} results recorded</p>
   `;
 }
- 
+
 fetchAndRender().catch(err => {
   document.getElementById('root').innerHTML =
     `<p style="color:#991b1b;font-size:14px;padding:2rem;text-align:center;">Failed to load: ${err.message}</p>`;
@@ -178,4 +133,3 @@ fetchAndRender().catch(err => {
 </script>
 </body>
 </html>
- 
