@@ -4,15 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clan Scoreboard</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes rise { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  .spin { animation: spin 0.8s linear infinite; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
-  .card { background: #fff; border-radius: 16px; border: 1px solid #e8e6e0; padding: 1.75rem; width: 100%; max-width: 520px; }
-  button { font-family: inherit; cursor: pointer; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes rise { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.spin { animation: spin 0.8s linear infinite; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.card { background: #fff; border-radius: 16px; border: 1px solid #e8e6e0; padding: 1.75rem; width: 100%; max-width: 520px; }
+button { font-family: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -22,114 +21,124 @@
   <div id="root">
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;height:200px;">
       <div class="spin" style="width:32px;height:32px;border:3px solid #e8e6e0;border-top-color:#534AB7;border-radius:50%;"></div>
-      <span style="color:#888;font-size:14px;">Loading clan data…</span>
+      <span style="color:#888;font-size:14px;">Loading clan data...</span>
     </div>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const SUPABASE_URL = 'https://rnyvltcsksmdpdmyzuvu.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueXZsdGNza3NtZHBkbXl6dXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNzA1NTAsImV4cCI6MjA5MzY0NjU1MH0.5p8svtn2EqILvRp9CaCsKB64IS0CJzQnUSVAc2o-ZCk';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+var SUPABASE_URL = 'https://rnyvltcsksmdpdmyzuvu.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueXZsdGNza3NtZHBkbXl6dXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNzA1NTAsImV4cCI6MjA5MzY0NjU1MH0.5p8svtn2EqILvRp9CaCsKB64IS0CJzQnUSVAc2o-ZCk';
 
-const CLANS = ['Douglas', 'Stuart', 'Gordon', 'Forbes'];
-const POINTS_MAP = { 1:8, 2:7, 3:6, 4:5, 5:4, 6:3, 7:2, 8:1 };
-const MEDALS = ['🥇','🥈','🥉',''];
-
-const CLAN_CONFIG = {
+var CLANS = ['Douglas', 'Stuart', 'Gordon', 'Forbes'];
+var POINTS_MAP = { 1:8, 2:7, 3:6, 4:5, 5:4, 6:3, 7:2, 8:1 };
+var MEDALS = ['🥇','🥈','🥉',''];
+var CLAN_CONFIG = {
   Douglas: { bar:'#3b82f6', light:'#dbeafe', text:'#1e3a8a', badge:'#bfdbfe' },
   Stuart:  { bar:'#ef4444', light:'#fee2e2', text:'#7f1d1d', badge:'#fecaca' },
   Gordon:  { bar:'#22c55e', light:'#dcfce7', text:'#14532d', badge:'#bbf7d0' },
-  Forbes:  { bar:'#eab308', light:'#fef9c3', text:'#78350f', badge:'#fef08a' },
+  Forbes:  { bar:'#eab308', light:'#fef9c3', text:'#78350f', badge:'#fef08a' }
 };
 
-async function fetchAndRender(year) {
-  const root = document.getElementById('root');
-  root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;height:200px;">
-    <div class="spin" style="width:28px;height:28px;border:3px solid #e8e6e0;border-top-color:#534AB7;border-radius:50%;"></div>
-  </div>`;
-
-  const [{ data: pupils }, { data: scores }, { data: events }] = await Promise.all([
-    sb.from('pupil').select('id,clan'),
-    sb.from('scoresheet').select('pupil_id,position,event_id'),
-    sb.from('event').select('id,year'),
-  ]);
-
-  const years = [...new Set(events.map(e => e.year))].sort((a, b) => b - a);
-  const activeYear = year ?? years[0];
-  const eventIds = new Set(events.filter(e => e.year === activeYear).map(e => e.id));
-
-  const totals = {};
-  CLANS.forEach(c => totals[c] = 0);
-  (scores || []).forEach(s => {
-    if (!eventIds.has(s.event_id) || !s.position) return;
-    const pupil = (pupils || []).find(p => p.id === s.pupil_id);
-    if (pupil) totals[pupil.clan] = (totals[pupil.clan] || 0) + (POINTS_MAP[s.position] || 0);
-  });
-
-  const ranked = CLANS.map(c => ({ clan: c, points: totals[c] }))
-    .sort((a, b) => b.points - a.points);
-  const max = Math.max(...ranked.map(r => r.points), 1);
-  const resultCount = (scores || []).filter(s => eventIds.has(s.event_id) && s.position).length;
-
-  // Year buttons
-  const yearBtns = years.map(y => `
-    <button onclick="fetchAndRender(${y})"
-      style="font-size:12px;padding:4px 10px;border-radius:20px;
-             border:1px solid ${y === activeYear ? '#534AB7' : '#ddd'};
-             background:${y === activeYear ? '#534AB7' : '#f5f4f0'};
-             color:${y === activeYear ? '#fff' : '#666'};">
-      ${y}
-    </button>`).join('');
-
-  // Clan rows
-  const rows = ranked.map((r, i) => {
-    const cfg = CLAN_CONFIG[r.clan];
-    const pct = Math.round((r.points / max) * 100);
-    return `
-      <div style="background:${cfg.light};border:1px solid ${cfg.badge};border-radius:12px;padding:1rem 1.25rem;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:${cfg.bar};
-                      display:flex;align-items:center;justify-content:center;
-                      font-size:13px;font-weight:500;color:#fff;flex-shrink:0;">${i + 1}</div>
-          <div style="flex:1;">
-            <span style="font-size:16px;font-weight:500;color:${cfg.text};">${r.clan}</span>
-            ${MEDALS[i] ? `<span style="font-size:18px;margin-left:8px;">${MEDALS[i]}</span>` : ''}
-          </div>
-          <div style="font-size:24px;font-weight:500;color:${cfg.text};">${r.points}</div>
-          <div style="font-size:13px;color:#888;min-width:28px;">pts</div>
-        </div>
-        <div style="background:${cfg.badge};border-radius:4px;height:8px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${cfg.bar};border-radius:4px;
-                      transform-origin:left;animation:rise 0.6s cubic-bezier(.22,1,.36,1) ${i * 0.1}s both;">
-          </div>
-        </div>
-      </div>`;
-  }).join('');
-
-  root.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px;">
-      <p style="font-size:13px;color:#888;">Sports Day · ${activeYear}</p>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        ${yearBtns}
-        <button onclick="fetchAndRender(${activeYear})"
-          style="font-size:12px;padding:4px 10px;border-radius:8px;
-                 border:1px solid #ddd;background:#f5f4f0;color:#666;
-                 display:flex;align-items:center;gap:4px;">
-          ↺ Refresh
-        </button>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;">${rows}</div>
-    <p style="font-size:12px;color:#aaa;margin-top:1rem;text-align:right;">${resultCount} results recorded</p>
-  `;
+function sbFetch(table, select) {
+  var url = SUPABASE_URL + '/rest/v1/' + table + '?select=' + encodeURIComponent(select);
+  return fetch(url, {
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+    }
+  }).then(function(r) { return r.json(); });
 }
 
-fetchAndRender().catch(err => {
-  document.getElementById('root').innerHTML =
-    `<p style="color:#991b1b;font-size:14px;padding:2rem;text-align:center;">Failed to load: ${err.message}</p>`;
-});
+function fetchAndRender(activeYear) {
+  var root = document.getElementById('root');
+  root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:12px;height:200px;"><div class="spin" style="width:28px;height:28px;border:3px solid #e8e6e0;border-top-color:#534AB7;border-radius:50%;"></div></div>';
+
+  Promise.all([
+    sbFetch('pupil', 'id,clan'),
+    sbFetch('scoresheet', 'pupil_id,position,event_id'),
+    sbFetch('event', 'id,year')
+  ]).then(function(results) {
+    var pupils   = results[0];
+    var scores   = results[1];
+    var events   = results[2];
+
+    var yearSet = {};
+    for (var i = 0; i < events.length; i++) yearSet[events[i].year] = true;
+    var years = Object.keys(yearSet).map(Number).sort(function(a,b){ return b-a; });
+
+    var year = (activeYear !== undefined) ? activeYear : years[0];
+
+    var eventIds = {};
+    for (var i = 0; i < events.length; i++) {
+      if (events[i].year === year) eventIds[events[i].id] = true;
+    }
+
+    var totals = {};
+    for (var i = 0; i < CLANS.length; i++) totals[CLANS[i]] = 0;
+
+    var resultCount = 0;
+    for (var i = 0; i < scores.length; i++) {
+      var s = scores[i];
+      if (!eventIds[s.event_id] || !s.position) continue;
+      var pupil = null;
+      for (var j = 0; j < pupils.length; j++) {
+        if (pupils[j].id === s.pupil_id) { pupil = pupils[j]; break; }
+      }
+      if (!pupil) continue;
+      totals[pupil.clan] = (totals[pupil.clan] || 0) + (POINTS_MAP[s.position] || 0);
+      resultCount++;
+    }
+
+    var ranked = [];
+    for (var i = 0; i < CLANS.length; i++) ranked.push({ clan: CLANS[i], points: totals[CLANS[i]] });
+    ranked.sort(function(a,b){ return b.points - a.points; });
+
+    var max = 1;
+    for (var i = 0; i < ranked.length; i++) if (ranked[i].points > max) max = ranked[i].points;
+
+    var yearBtns = '';
+    for (var i = 0; i < years.length; i++) {
+      var y = years[i];
+      var active = y === year;
+      yearBtns += '<button onclick="fetchAndRender(' + y + ')" style="font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid ' + (active?'#534AB7':'#ddd') + ';background:' + (active?'#534AB7':'#f5f4f0') + ';color:' + (active?'#fff':'#666') + ';">' + y + '</button>';
+    }
+
+    var rows = '';
+    for (var i = 0; i < ranked.length; i++) {
+      var r = ranked[i];
+      var cfg = CLAN_CONFIG[r.clan];
+      var pct = Math.round((r.points / max) * 100);
+      var medal = MEDALS[i] || '';
+      rows += '<div style="background:' + cfg.light + ';border:1px solid ' + cfg.badge + ';border-radius:12px;padding:1rem 1.25rem;">'
+        + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">'
+        + '<div style="width:36px;height:36px;border-radius:50%;background:' + cfg.bar + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#fff;flex-shrink:0;">' + (i+1) + '</div>'
+        + '<div style="flex:1;"><span style="font-size:16px;font-weight:500;color:' + cfg.text + ';">' + r.clan + '</span>'
+        + (medal ? '<span style="font-size:18px;margin-left:8px;">' + medal + '</span>' : '')
+        + '</div>'
+        + '<div style="font-size:24px;font-weight:500;color:' + cfg.text + ';">' + r.points + '</div>'
+        + '<div style="font-size:13px;color:#888;min-width:28px;">pts</div>'
+        + '</div>'
+        + '<div style="background:' + cfg.badge + ';border-radius:4px;height:8px;overflow:hidden;">'
+        + '<div style="height:100%;width:' + pct + '%;background:' + cfg.bar + ';border-radius:4px;transform-origin:left;animation:rise 0.6s ease ' + (i*0.1) + 's both;"></div>'
+        + '</div></div>';
+    }
+
+    root.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px;">'
+      + '<p style="font-size:13px;color:#888;">Sports Day &middot; ' + year + '</p>'
+      + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+      + yearBtns
+      + '<button onclick="fetchAndRender(' + year + ')" style="font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid #ddd;background:#f5f4f0;color:#666;">&#8635; Refresh</button>'
+      + '</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:10px;">' + rows + '</div>'
+      + '<p style="font-size:12px;color:#aaa;margin-top:1rem;text-align:right;">' + resultCount + ' results recorded</p>';
+
+  }).catch(function(err) {
+    document.getElementById('root').innerHTML = '<p style="color:#991b1b;font-size:14px;padding:2rem;text-align:center;">Failed to load: ' + err.message + '</p>';
+  });
+}
+
+fetchAndRender();
 </script>
 </body>
 </html>
